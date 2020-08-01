@@ -61,4 +61,4 @@ class SkipMLP(nn.Module):
         return self.head(x)
 
 
-MLP = SkipMLP
+MLP = VanillaMLP
