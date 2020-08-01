@@ -18,7 +18,7 @@ def main():
 
     # configure the agent
     agent_conf = Agent.AgentConf()
-    agent_conf.num_instances = 2
+    agent_conf.num_instances = 4
     agent_conf.algorithm = "sac"
     global_conf.update(agent_conf)
 

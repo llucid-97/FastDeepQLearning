@@ -1,3 +1,29 @@
+"""
+This is a modified version of Pranjal Tandon's Pytorch Soft Actor Critic [https://github.com/pranz24/pytorch-soft-actor-critic]
+
+MIT License
+
+Copyright (c) 2018 Pranjal Tandon
+Copyright (c) 2020 Gershom Agim
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
 from .models import make_actor, make_critic
 import torch, numpy as np
 from torch import Tensor, nn
@@ -28,7 +54,7 @@ class SoftActorCriticModule(nn.Module):
             self.target_entropy = - self.conf.action_space.n
         else:
             self.target_entropy = - np.product(self.conf.action_space.shape).item()
-        self.log_alpha = torch.nn.Parameter(torch.tensor(-2, dtype=torch.float32), requires_grad=True)
+        self.log_alpha = torch.nn.Parameter(torch.tensor(conf.initial_log_alpha, dtype=torch.float32), requires_grad=True)
         self.curr_alpha = np.exp(self.log_alpha.item())
 
     def parameters(self, *args, **kwargs):
@@ -72,7 +98,9 @@ class SoftActorCriticModule(nn.Module):
         q_pred = self.critic(state_action)
 
         # Compute bellman loss. Ignore the warning: i'm just abusing the broadcast
-        q_loss = F.smooth_l1_loss(q_pred, td_target, reduction="none")
+        # TODO: Try l1 losses for stability
+        # q_loss = F.smooth_l1_loss(q_pred, td_target, reduction="none")
+        q_loss = F.mse_loss(q_pred, td_target, reduction="none")
         return q_loss
 
     def actor_loss(self, xp: T.Dict[str, Tensor]):

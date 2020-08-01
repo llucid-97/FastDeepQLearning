@@ -27,15 +27,16 @@ class AgentConf(AttrDict):
         self.use_max_entropy = True
 
         # Optional Components
-        self.squash_rewards = True # Reduce reward variance with transform from [arXiv:1805.11593]
+        self.squash_rewards = False # Reduce reward variance with transform from [arXiv:1805.11593]
 
         # hyper params
         self.lr = 3e-4  # learning rate
         self.gamma = 0.99  # discount factor
         self.tau = 5e-2  # soft target update rate
         self.batch_size = 256
-        self.temporal_len = 50
+        self.temporal_len = 2
         self.grad_clip = 20
+        self.initial_log_alpha = -2 # starting point for entropy tuning (SAC)
 
     @property
     def discrete(self):

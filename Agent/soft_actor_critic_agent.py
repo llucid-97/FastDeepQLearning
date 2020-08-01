@@ -37,7 +37,7 @@ class SoftActorCriticAgent(nn.Module):
             rsampled, log_prob, mean = self.sac.act(experiences["obs"])
 
             # Choose whether to explore or exploit
-            exploit_mask = experiences["idx"] == 0  # select environments that should exploit
+            exploit_mask = (experiences["idx"] == 0).view(-1,1)  # select environments that should exploit
             action = (mean * exploit_mask) + (rsampled * torch.logical_not(exploit_mask))
 
             if self.discrete: action = action.argmax(-1, True)  # go from one-hot encoding to sparse
@@ -100,7 +100,7 @@ def train_sac(conf: dict, replays, param_q: mp.Queue):
 
         optimizer.zero_grad()
         total_loss.backward()
-        nn.utils.clip_grad_norm_(sac.parameters(),max_norm=conf.grad_clip)
+        # nn.utils.clip_grad_norm_(sac.parameters(),max_norm=conf.grad_clip)
         optimizer.step()
         sac.update_target()
 
