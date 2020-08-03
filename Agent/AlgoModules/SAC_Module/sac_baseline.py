@@ -90,11 +90,13 @@ class SoftActorCriticModule(nn.Module):
 
         # Get online critic predictions
         if self.discrete:
-            curr_xp["action"] = torch.eye(
-                self.conf.action_space.n,
-                device=curr_xp["action"].device, dtype=self.conf.dtype
-            )[curr_xp["action"].view(curr_xp["action"].shape[:-1]).long()]
-        state_action = torch.cat((curr_xp["state"], curr_xp["action"]), dim=-1)
+            # Make it a OneHot Vector to match format of NN outputs
+            action = torch.eye(self.conf.action_space.n,
+                                          device=self.conf.training_device,dtype=self.conf.fpp
+                                          )[curr_xp["action"].view(curr_xp["action"].shape[:-1]).long()]
+        else:
+            action = curr_xp["action"]
+        state_action = torch.cat((curr_xp["state"], action), dim=-1)
         q_pred = self.critic(state_action)
 
         # Compute bellman loss. Ignore the warning: i'm just abusing the broadcast

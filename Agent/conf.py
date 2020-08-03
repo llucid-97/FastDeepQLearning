@@ -27,7 +27,7 @@ class AgentConf(AttrDict):
         self.squash_rewards = True  # Reduce reward variance with transform from [arXiv:1805.11593]
         """^^^Instantiate a replay wrapper which reduces variance of the stored rewards for numeric stability"""
 
-        self.use_sde = True  # State Dependent Exploration [arXiv:2005.05719]
+        self.use_sde = False  # State Dependent Exploration [arXiv:2005.05719]
         """Parametize a random network that predicts noise for our actions conditioned on state.
         The weights and activations are designed to ensure the output is distributed as: Normal(μ=0,σ=1)
         We use this for reparametization instead of a true random gaussian sample.

@@ -15,6 +15,8 @@ class Runner:
     def __init__(self, conf: T.Union[Agent.AgentConf, Env.EnvConf]):
         self.conf = conf
         common_utils.TimerSummary.CLASS_ENABLE_SWITCH = conf.enable_profiling
+        from gym.spaces import Discrete
+        self.discrete = isinstance(self.conf.action_space,Discrete)
 
         # Queues for communicating between all worker threads
         self.obs_queue = Queue(maxsize=conf.num_instances)
@@ -89,7 +91,6 @@ class Runner:
                     xp_dict_list[i]["action"] = np.copy(action)
 
                     # push experience dicts to appropriate replay memories.
-                    #
                     replay_copy = {}  # copy so others cant mutate. Deep copy would be safer, but less efficient & unnecessary if values are not mutated in place
                     replay_copy.update(xp_dict_list[i])
 
@@ -97,6 +98,7 @@ class Runner:
                         self.replay_queues[env_idx].put(replay_copy)
 
                     # push actions to env
+                    if self.discrete: action = action.item()
                     with common_utils.TimerSummary(logger, "Env_Dataloader___ACTIONQ", group="timers", step=step):
                         self.action_queues[env_idx].put(action)
 
