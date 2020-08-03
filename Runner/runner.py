@@ -14,6 +14,7 @@ class Runner:
 
     def __init__(self, conf: T.Union[Agent.AgentConf, Env.EnvConf]):
         self.conf = conf
+        common_utils.TimerSummary.CLASS_ENABLE_SWITCH = conf.enable_profiling
 
         # Queues for communicating between all worker threads
         self.obs_queue = Queue(maxsize=conf.num_instances)

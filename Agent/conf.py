@@ -21,22 +21,30 @@ class AgentConf(AttrDict):
         self.inference_input_keys = "obs", "idx"  # environment keys required to run inference
         self.algorithm = "random"  # [random | sac | ]
 
-        # Soft Actor Critic
-        self.use_double_q = True
-        self.use_soft_targets = True
-        self.use_max_entropy = True
-
         # Optional Components
-        self.squash_rewards = False # Reduce reward variance with transform from [arXiv:1805.11593]
+        self.use_double_q = True  # keep 2 espimates of Q function to address over-estimation bias [Mnih et al]
+        self.use_soft_targets = True  # Target update method (see SAC paper)
+        self.squash_rewards = True  # Reduce reward variance with transform from [arXiv:1805.11593]
+        """^^^Instantiate a replay wrapper which reduces variance of the stored rewards for numeric stability"""
+
+        self.use_sde = True  # State Dependent Exploration [arXiv:2005.05719]
+        """Parametize a random network that predicts noise for our actions conditioned on state.
+        The weights and activations are designed to ensure the output is distributed as: Normal(μ=0,σ=1)
+        We use this for reparametization instead of a true random gaussian sample.
+        This way the noise is state-dependent & temporally correlated; less jerky         
+        """
 
         # hyper params
         self.lr = 3e-4  # learning rate
         self.gamma = 0.99  # discount factor
         self.tau = 5e-2  # soft target update rate
         self.batch_size = 256
-        self.temporal_len = 2
+        self.temporal_len = 50
         self.grad_clip = 20
-        self.initial_log_alpha = -2 # starting point for entropy tuning (SAC)
+        self.initial_log_alpha = -2  # starting point for entropy tuning (SAC)
+        self.sde_update_interval = 50 # how many steps before resetting SDE gaussian
+
+        self.enable_profiling = False
 
     @property
     def discrete(self):

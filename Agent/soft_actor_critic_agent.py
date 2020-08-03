@@ -1,6 +1,6 @@
 import torch
 from torch import nn, Tensor
-from .AlgoModules.SAC_Module.sac_module import SoftActorCriticModule as _SAC
+from .AlgoModules.SAC_Module import sac_baseline, sac_sde
 from Agent.conf import AgentConf
 import typing as T
 import multiprocessing as mp
@@ -10,10 +10,17 @@ import Replay
 from collections import OrderedDict
 
 
+def make_module(conf)->nn.Module:
+    if conf.use_sde:
+        Module = sac_sde.SDESoftActorCriticModule
+    else:
+        Module = sac_baseline.SoftActorCriticModule
+    return Module(conf, conf.obs_space.shape[-1])
+
 class SoftActorCriticAgent(nn.Module):
     def __init__(self, conf: AgentConf, replays: T.List[AsyncReplayMemory], launch_trainer=True):
         nn.Module.__init__(self)
-        self.sac = _SAC(conf, conf.obs_space.shape[-1])
+        self.sac = make_module(conf)
         self.conf = conf
         from gym.spaces import Discrete
         self.discrete = isinstance(conf.action_space, Discrete)
@@ -29,7 +36,7 @@ class SoftActorCriticAgent(nn.Module):
 
     def _update_params(self):
         while True:
-            self._train_step,state_dict = self.param_q.get()
+            self._train_step, state_dict = self.param_q.get()
             self.sac.load_state_dict(state_dict)
 
     def act(self, experiences: T.Dict[str, Tensor]) -> T.Dict[str, Tensor]:
@@ -37,7 +44,7 @@ class SoftActorCriticAgent(nn.Module):
             rsampled, log_prob, mean = self.sac.act(experiences["obs"])
 
             # Choose whether to explore or exploit
-            exploit_mask = (experiences["idx"] == 0).view(-1,1)  # select environments that should exploit
+            exploit_mask = (experiences["idx"] == 0).view(-1, 1)  # select environments that should exploit
             action = (mean * exploit_mask) + (rsampled * torch.logical_not(exploit_mask))
 
             if self.discrete: action = action.argmax(-1, True)  # go from one-hot encoding to sparse
@@ -52,7 +59,7 @@ def train_sac(conf: dict, replays, param_q: mp.Queue):
     from common_utils import time_stamp_str
 
     conf = AgentConf().from_dict(conf)
-    sac = _SAC(conf, conf.obs_space.shape[-1])
+    sac = make_module(conf)
     sac.to(conf.training_device)
     optimizer = torch.optim.Adam(sac.parameters(), lr=conf.lr)
     logger = SummaryWriter(Path(conf.log_dir) / "Trainer")
@@ -60,20 +67,21 @@ def train_sac(conf: dict, replays, param_q: mp.Queue):
     # Parallelize parameter dump to CPU
     def dump_params(dump_q: Queue):
         while True:
-            step,state_dict = dump_q.get()
+            step, state_dict = dump_q.get()
             state_dict = OrderedDict({k: v.to("cpu:0") for k, v in state_dict.items()})
-            param_q.put((step,state_dict))
+            param_q.put((step, state_dict))
 
     dump_q = Queue(maxsize=1)
     Thread(target=dump_params, args=[dump_q]).start()
 
     # Parallelize data prefetch to GPU
     from Replay.wrappers.torch_dataloader import TorchDataLoader
-    replays = [TorchDataLoader(r,conf.training_device,conf.fpp) for r in replays]
+    replays = [TorchDataLoader(r, conf.training_device, conf.fpp) for r in replays]
     num_replays = len(replays)
     # Perform training steps
     for step in itertools.count():
-        experience: T.Dict[str, Tensor] = replays[step%num_replays].temporal_sample(conf.batch_size,conf.temporal_len)
+        experience: T.Dict[str, Tensor] = replays[step % num_replays].temporal_sample(conf.batch_size,
+                                                                                      conf.temporal_len)
 
         # for compatibility with other usages of the sac module, we must comply with the names it expects!
         experience["state"] = experience["obs"]
@@ -100,17 +108,17 @@ def train_sac(conf: dict, replays, param_q: mp.Queue):
 
         optimizer.zero_grad()
         total_loss.backward()
-        # nn.utils.clip_grad_norm_(sac.parameters(),max_norm=conf.grad_clip)
+        nn.utils.clip_grad_norm_(sac.parameters(), max_norm=conf.grad_clip)
         optimizer.step()
         sac.update_target()
 
         if (step % conf.dump_period) == 0:
             # Push params to experiment runner
             if dump_q.empty():
-                dump_q.put_nowait((step,sac.state_dict()))
+                dump_q.put_nowait((step, sac.state_dict()))
 
             # Push logs to disk
-            logger.add_scalar("Loss/Critic",critic_loss[0][0][0],step)
+            logger.add_scalar("Loss/Critic", critic_loss[0][0][0], step)
             logger.add_scalar("Loss/Actor", actor_loss[0][0][0], step)
             logger.add_scalar("Loss/Entropy", entropy_loss[0][0][0], step)
             logger.add_scalar("MetaParams/Alpha", alpha, step)

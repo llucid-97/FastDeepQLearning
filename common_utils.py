@@ -24,7 +24,7 @@ def time_stamp_str():  # generate a timestamp used for logging
 
 class TimerSummary:
     """Scope timer that prints to SummaryWriter"""
-
+    CLASS_ENABLE_SWITCH =True # a kill switch to conveniently enable/disable logging in 1 central place
     def __init__(self, writer, name, group="Timers", step=None):
         from torch.utils.tensorboard import SummaryWriter
         self.writer: SummaryWriter = writer
@@ -36,4 +36,5 @@ class TimerSummary:
     def __exit__(self, *args):
         self.end = _time.clock()
         self.interval = self.end - self.start
-        self.writer.add_scalars(self.group, {self.name: self.interval}, self.step)
+        if self.CLASS_ENABLE_SWITCH:
+            self.writer.add_scalars(self.group, {self.name: self.interval}, self.step)
