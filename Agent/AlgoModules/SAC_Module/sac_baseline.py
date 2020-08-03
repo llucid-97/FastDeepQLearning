@@ -34,18 +34,18 @@ import typing as T
 
 
 class SoftActorCriticModule(nn.Module):
-    def __init__(self, conf: AgentConf, input_dim):
+    def __init__(self, conf: AgentConf, input_dim,critic_factory=make_critic,actor_factory=make_actor):
         super().__init__()
         self.conf = conf
 
         # Actor Critic networks
-        self.critic = make_critic(conf, input_dim)
-        self.target_critic = make_critic(conf, input_dim)
-        self.frozen_critic = make_critic(conf, input_dim)
+        self.critic = critic_factory(conf, input_dim)
+        self.target_critic = critic_factory(conf, input_dim)
+        self.frozen_critic = critic_factory(conf, input_dim)
         target_updates.hard_update(self.target_critic, self.critic)
 
-        self.actor = make_actor(conf, input_dim)
-        self.target_actor = make_actor(conf, input_dim)
+        self.actor = actor_factory(conf, input_dim)
+        self.target_actor = actor_factory(conf, input_dim)
 
         # Target Entropy parameter
         from gym.spaces import Discrete
@@ -99,8 +99,8 @@ class SoftActorCriticModule(nn.Module):
 
         # Compute bellman loss. Ignore the warning: i'm just abusing the broadcast
         # TODO: Try l1 losses for stability
-        # q_loss = F.smooth_l1_loss(q_pred, td_target, reduction="none")
-        q_loss = F.mse_loss(q_pred, td_target, reduction="none")
+        q_loss = F.smooth_l1_loss(q_pred, td_target, reduction="none")
+        # q_loss = F.mse_loss(q_pred, td_target, reduction="none")
         return q_loss
 
     def actor_loss(self, xp: T.Dict[str, Tensor]):
