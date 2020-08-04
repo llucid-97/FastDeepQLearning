@@ -18,7 +18,8 @@ def main():
 
     # configure the agent
     agent_conf = Agent.AgentConf()
-    agent_conf.num_instances = 4
+    agent_conf.num_instances = 1
+    agent_conf.use_async_train = False
     agent_conf.algorithm = "sac"
     global_conf.update(agent_conf)
 
