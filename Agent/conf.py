@@ -12,7 +12,7 @@ class AgentConf(AttrDict):
         self.log_dir = "logs"
 
         self.dtype = torch.float32  # floating point precision
-        self.inference_device = "cpu:0" if torch.cuda.is_available() else "cpu:0"
+        self.inference_device = "cuda:0" if torch.cuda.is_available() else "cpu:0"
         self.training_device = "cuda:0" if torch.cuda.is_available() else "cpu:0"
         self.dump_period = 50  # dump things from trainer after this many steps
 
@@ -22,7 +22,8 @@ class AgentConf(AttrDict):
         self.algorithm = "random"  # [random | sac | ]
 
         # Optional Components
-        self.use_double_q = True  # keep 2 espimates of Q function to address over-estimation bias [Mnih et al]
+        self.use_async_train = True # Do training in another process and sync parameters periodically [arXiv:1803.00933]
+        self.use_double_q = True  # keep 2 espimates of Q function to address over-estimation bias [arXiv:1509.06461]
         self.use_soft_targets = True  # Target update method (see SAC paper)
         self.squash_rewards = True  # Reduce reward variance with transform from [arXiv:1805.11593]
         """`squash_rewards`: Instantiate a replay wrapper which reduces variance of the stored rewards for numeric stability"""
