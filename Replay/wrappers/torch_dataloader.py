@@ -36,7 +36,8 @@ class TorchDataLoader(ReplayMemoryWrapper):
                           for k, v in experience.items()}
             # queue output
             self._temporal_load_q.put(experience)
-
+    def ready(self):
+        return not self._temporal_load_q.empty()
     def sample(self) -> typing.Dict[str, torch.Tensor]:
         if self._use_temporal:
             raise ConfigurationError("Incorrect Config! Unset `use_temporal` in init to support this feature")
