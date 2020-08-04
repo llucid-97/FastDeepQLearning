@@ -34,7 +34,7 @@ import typing as T
 
 
 class SoftActorCriticModule(nn.Module):
-    def __init__(self, conf: AgentConf, input_dim,critic_factory=make_critic,actor_factory=make_actor):
+    def __init__(self, conf: AgentConf, input_dim, critic_factory=make_critic, actor_factory=make_actor):
         super().__init__()
         self.conf = conf
 
@@ -54,7 +54,8 @@ class SoftActorCriticModule(nn.Module):
             self.target_entropy = - self.conf.action_space.n
         else:
             self.target_entropy = - np.product(self.conf.action_space.shape).item()
-        self.log_alpha = torch.nn.Parameter(torch.tensor(conf.initial_log_alpha, dtype=torch.float32), requires_grad=True)
+        self.log_alpha = torch.nn.Parameter(torch.tensor(conf.initial_log_alpha, dtype=torch.float32),
+                                            requires_grad=True)
         self.curr_alpha = np.exp(self.log_alpha.item())
 
     def parameters(self, *args, **kwargs):
@@ -75,7 +76,7 @@ class SoftActorCriticModule(nn.Module):
 
     def critic_loss(self, curr_xp: T.Dict[str, Tensor], next_xp):
         """Expects tensors to be pre-sliced TD style!"""
-
+        summaries = {}
         with torch.no_grad():
             # Get Action prediction from target policy network
             next_action, next_log_pi, _ = self.target_actor(next_xp["state"])
@@ -92,20 +93,58 @@ class SoftActorCriticModule(nn.Module):
         if self.discrete:
             # Make it a OneHot Vector to match format of NN outputs
             action = torch.eye(self.conf.action_space.n,
-                                          device=self.conf.training_device,dtype=self.conf.fpp
-                                          )[curr_xp["action"].view(curr_xp["action"].shape[:-1]).long()]
+                               device=self.conf.training_device, dtype=self.conf.dtype
+                               )[curr_xp["action"].view(curr_xp["action"].shape[:-1]).long()]
         else:
             action = curr_xp["action"]
         state_action = torch.cat((curr_xp["state"], action), dim=-1)
         q_pred = self.critic(state_action)
 
         # Compute bellman loss. Ignore the warning: i'm just abusing the broadcast
-        # TODO: Try l1 losses for stability
         q_loss = F.smooth_l1_loss(q_pred, td_target, reduction="none")
         # q_loss = F.mse_loss(q_pred, td_target, reduction="none")
-        return q_loss
+
+        bootstrap_n_step_lowerbound = None
+        if self.conf.use_nStep_lowerbounds:
+            # Use the sampled return as a lower bound for Q predictions
+            lowerbound = (next_xp["n_step_return"] - q_pred).relu_()
+            lb_mask = (lowerbound == 0)
+            q_loss = (q_loss * lb_mask) + lowerbound
+            with torch.no_grad():
+                summaries["mc_constraint_violations"] = torch.logical_not(lb_mask).sum().float() / np.prod(
+                    lb_mask.shape).item()
+
+            if self.conf.use_bootstrap_nstep:
+                # Bootstrapped n-step return
+                # Uses the target network to predict remainder of score beyond the temporal window
+                td_len = self.conf.temporal_len - 1
+                # Temporal Consistency Penalties
+                # By definition of Q*, Q*(s0,a0) must be greater than Q*(sn,an)
+                # We can exploit this property to construct bounds on Q predictions over >1 time step
+                with torch.no_grad():
+                    # Calculate the n-step reward up to our time horizon
+                    try:
+                        window_discounts = self._memoized_window_discounts  # memoize it so we don't have to recompute every cycle
+                    except AttributeError:
+                        window_discounts = self.conf.gamma ** torch.arange(td_len, device=self.conf.training_device,
+                                                                           dtype=self.conf.dtype).view(-1, 1, 1)
+                        self._memoized_window_discounts = window_discounts
+                    window_R = (next_xp["reward"] * window_discounts).sum(0)  # n-step return over window
+                    window_mask = next_xp["mask"].prod(0)
+
+                # penalize any points where the bound > pred. Only done for first element
+                bootstrap_n_step_lowerbound = window_mask * (
+                        (window_R + ((self.conf.gamma ** td_len) * td_target[-1]))
+                        - q_pred[0]
+                ).relu_()
+                with torch.no_grad():
+                    summaries["n_step_bootstrap_violations"] = torch.logical_not(
+                        bootstrap_n_step_lowerbound == 0).sum().float() / np.prod(bootstrap_n_step_lowerbound.shape).item()
+
+        return q_loss, bootstrap_n_step_lowerbound, summaries
 
     def actor_loss(self, xp: T.Dict[str, Tensor]):
+        summaries = {}
         pi, log_pi, _ = self.actor(xp["state"])
 
         # Note: we detach enc_state for the reason above but We still backprop into the encoder via pi.
@@ -119,5 +158,6 @@ class SoftActorCriticModule(nn.Module):
         policy_loss = -(self.curr_alpha * entropy) - qpi
         alpha_loss = -(self.log_alpha * (self.target_entropy - entropy).detach())
 
-        self.curr_alpha = torch.exp(self.log_alpha).detach().requires_grad_(False)
-        return policy_loss, alpha_loss, self.curr_alpha.detach()
+        self.curr_alpha = torch.exp(self.log_alpha).detach()
+        summaries["curr_alpha"] = self.curr_alpha
+        return policy_loss, alpha_loss, summaries

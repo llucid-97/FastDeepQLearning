@@ -6,7 +6,7 @@ import typing as T
 import multiprocessing as mp
 from threading import Thread
 from Replay.async_replay_memory import AsyncReplayMemory
-import Replay
+import traceback
 from collections import OrderedDict
 
 
@@ -51,75 +51,85 @@ class SoftActorCriticAgent(nn.Module):
             return action
 
 
-def train_sac(conf: dict, replays, param_q: mp.Queue):
-    from queue import Queue
-    import itertools
-    from torch.utils.tensorboard import SummaryWriter
-    from pathlib import Path
-    from common_utils import time_stamp_str
+def train_sac(conf: AgentConf, replays, param_q: mp.Queue):
+    try:
+        from queue import Queue
+        import itertools
+        from torch.utils.tensorboard import SummaryWriter
+        from pathlib import Path
 
-    conf = AgentConf().from_dict(conf)
-    sac = make_module(conf)
-    sac.to(conf.training_device)
-    optimizer = torch.optim.Adam(sac.parameters(), lr=conf.lr)
-    logger = SummaryWriter(Path(conf.log_dir) / "Trainer")
+        conf = AgentConf().from_dict(conf)
+        sac = make_module(conf)
+        sac.to(conf.training_device)
+        optimizer = torch.optim.Adam(sac.parameters(), lr=conf.lr)
+        logger = SummaryWriter(Path(conf.log_dir) / "Trainer")
 
-    # Parallelize parameter dump to CPU
-    def dump_params(dump_q: Queue):
-        while True:
-            step, state_dict = dump_q.get()
-            state_dict = OrderedDict({k: v.to("cpu:0") for k, v in state_dict.items()})
-            param_q.put((step, state_dict))
+        # Parallelize parameter dump to CPU
+        def dump_params(dump_q: Queue):
+            while True:
+                step, state_dict = dump_q.get()
+                state_dict = OrderedDict({k: v.to("cpu:0") for k, v in state_dict.items()})
+                param_q.put((step, state_dict))
 
-    dump_q = Queue(maxsize=1)
-    Thread(target=dump_params, args=[dump_q]).start()
+        dump_q = Queue(maxsize=1)
+        Thread(target=dump_params, args=[dump_q]).start()
 
-    # Parallelize data prefetch to GPU
-    from Replay.wrappers.torch_dataloader import TorchDataLoader
-    replays = [TorchDataLoader(r, conf.training_device, conf.fpp) for r in replays]
-    num_replays = len(replays)
-    # Perform training steps
-    for step in itertools.count():
-        experience: T.Dict[str, Tensor] = replays[step % num_replays].temporal_sample(conf.batch_size,
-                                                                                      conf.temporal_len)
+        # Parallelize data prefetch to GPU
+        from Replay.wrappers.torch_dataloader import TorchDataLoader
+        replays = [TorchDataLoader(r, conf.training_device, conf.dtype) for r in replays]
+        num_replays = len(replays)
+        # Perform training steps
+        for step in itertools.count():
+            experience: T.Dict[str, Tensor] = replays[step % num_replays].temporal_sample(conf.batch_size,
+                                                                                          conf.temporal_len)
 
-        # for compatibility with other usages of the sac module, we must comply with the names it expects!
-        experience["state"] = experience["obs"]
-        experience["mask"] = torch.logical_not(experience["task_done"])
+            # for compatibility with other usages of the sac module, we must comply with the names it expects!
+            experience["state"] = experience["obs"]
+            experience["mask"] = torch.logical_not(experience["task_done"])
 
-        # Ensure scalars have a separate dimension
-        curr_xp, next_xp = {}, {}
-        for k in experience:
-            if len(experience[k].shape) == 2:
-                experience[k].unsqueeze_(-1)
+            # Ensure scalars have a separate dimension
+            curr_xp, next_xp = {}, {}
+            for k in experience:
+                if len(experience[k].shape) == 2:
+                    experience[k].unsqueeze_(-1)
 
-            # ensure we have a temporal-difference style.
-            curr_xp[k] = experience[k][:-1]
-            next_xp[k] = experience[k][1:]
+                # ensure we have a temporal-difference style.
+                curr_xp[k] = experience[k][:-1]
+                next_xp[k] = experience[k][1:]
 
-        # Calculate loss
-        critic_loss = sac.critic_loss(curr_xp, next_xp)
-        actor_loss, entropy_loss, alpha = sac.actor_loss(curr_xp)
+            # Calculate loss
+            critic_loss,bootstrap_nstep_loss,critic_summaries = sac.critic_loss(curr_xp, next_xp)
+            actor_loss, entropy_loss, actor_summaries = sac.actor_loss(curr_xp)
 
-        # Combine losses and Mask the invalid (non-contiguous) elements
-        contiguous_mask = next_xp["ep_step"] == (curr_xp["ep_step"] + 1)
-        total_loss = critic_loss + actor_loss + entropy_loss
-        total_loss = (total_loss * contiguous_mask).mean() / conf.temporal_len
+            # Combine losses and Mask the invalid (non-contiguous) elements
+            contiguous_mask = next_xp["ep_step"] == (curr_xp["ep_step"] + 1)
+            loss = critic_loss + actor_loss + entropy_loss
+            loss = (loss * contiguous_mask).mean()
+            if bootstrap_nstep_loss is not None:
+                bootstrap_nstep_loss = (bootstrap_nstep_loss * contiguous_mask.prod(0)).mean()
+                loss = loss + bootstrap_nstep_loss
 
-        optimizer.zero_grad()
-        total_loss.backward()
-        nn.utils.clip_grad_norm_(sac.parameters(), max_norm=conf.grad_clip)
-        optimizer.step()
-        sac.update_target()
+            loss = loss / conf.temporal_len
 
-        if (step % conf.dump_period) == 0:
-            # Push params to experiment runner
-            if dump_q.empty():
-                dump_q.put_nowait((step, sac.state_dict()))
+            optimizer.zero_grad()
+            loss.backward()
+            nn.utils.clip_grad_norm_(sac.parameters(), max_norm=conf.grad_clip)
+            optimizer.step()
+            sac.update_target()
 
-            # Push logs to disk
-            logger.add_scalar("Loss/Critic", critic_loss[0][0][0], step)
-            logger.add_scalar("Loss/Actor", actor_loss[0][0][0], step)
-            logger.add_scalar("Loss/Entropy", entropy_loss[0][0][0], step)
-            logger.add_scalar("MetaParams/Alpha", alpha, step)
-            logger.add_scalar("MetaParams/Alpha", alpha, step)
+            if (step % conf.dump_period) == 0:
+                # Push params to experiment runner
+                if dump_q.empty():
+                    dump_q.put_nowait((step, sac.state_dict()))
+
+                # Push logs to disk
+                logger.add_scalar("loss/Critic", critic_loss[0][0][0], step)
+                logger.add_scalar("loss/Actor", actor_loss[0][0][0], step)
+                logger.add_scalar("loss/Entropy", entropy_loss[0][0][0], step)
+
+                [logger.add_scalar(f"Critic/{k}", v, step) for k,v in critic_summaries.items()]
+                [logger.add_scalar(f"Actor/{k}", v, step) for k,v in actor_summaries.items()]
+
+    except Exception as e:
+        print(e)
+        traceback.print_stack()
