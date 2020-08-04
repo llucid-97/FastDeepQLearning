@@ -58,7 +58,7 @@ class Runner:
                 # Convert inputs the agent needs into batched tensors & push to device
                 batch: T.Dict[str, Tensor] = {}
                 for k in self.conf.inference_input_keys:
-                    batch[k] = torch.stack([torch.tensor(xp[k], dtype=self.conf.fpp, device=self.conf.inference_device)
+                    batch[k] = torch.stack([torch.tensor(xp[k], dtype=self.conf.dtype, device=self.conf.inference_device)
                                             for xp in requests])
 
                 # Push to inference
@@ -135,11 +135,16 @@ class Runner:
                     # get response from agent to last thing seen
                     action = self.action_queues[idx].get()
 
+                    # May terminate here (ensure the agent gets the done observation before quitting)
+                    if experience["ep_done"]:
+                        logger.add_scalar("Score/Episode", score, episode)
+                        logger.add_scalar("Score/TrainStep", score, self.agent.iteration)
+                        break
+
                 with common_utils.TimerSummary(logger, f"Env_{idx}_Step", group="timers/runner_pipeline",
                                                step=total_step):
                     # Get new experience from environment and populate the dict
                     experience["obs"], experience["reward"], experience["ep_done"], info = env.step(action)
-                    experience.update(info)
                     experience["task_done"] = experience["ep_done"] and not info.get('TimeLimit.truncated', False)
                     env.render()
 
@@ -147,19 +152,18 @@ class Runner:
                     score += experience["reward"]
                     total_step += 1
 
-                    if experience["ep_done"]:
-                        logger.add_scalar("Score/Episode", score, episode)
-                        logger.add_scalar("Score/TrainStep", score, self.agent.iteration)
-                        break
 
 
-def _make_replay_shards(global_conf: Agent.AgentConf) -> T.List[Replay.AsyncReplayMemory]:
+
+def _make_replay_shards(conf: Agent.AgentConf) -> T.List[Replay.AsyncReplayMemory]:
     """Helper function to construct the replay memories"""
     shards = [Replay.AsyncReplayMemory(
-        global_conf.replay_size, global_conf.batch_size, global_conf.temporal_len
-    ) for _ in range(global_conf.num_instances)]
+        conf.replay_size, conf.batch_size, conf.temporal_len
+    ) for _ in range(conf.num_instances)]
 
     # Construct optional wrappers around it for modular transformations
-    if global_conf.squash_rewards:
+    if conf.squash_rewards:
         shards = [Replay.wrappers.squash_rewards.SquashRewards(r) for r in shards]
+    if conf.use_nStep_lowerbounds:
+        shards = [Replay.wrappers.nstep_return.NStepReturn(r, conf.mc_return_step, conf.gamma) for r in shards]
     return shards

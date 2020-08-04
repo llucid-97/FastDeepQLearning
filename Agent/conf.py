@@ -11,7 +11,7 @@ class AgentConf(AttrDict):
         self.replay_size = int(5e4)
         self.log_dir = "logs"
 
-        self.fpp = torch.float32  # floating point precision
+        self.dtype = torch.float32  # floating point precision
         self.inference_device = "cpu:0" if torch.cuda.is_available() else "cpu:0"
         self.training_device = "cuda:0" if torch.cuda.is_available() else "cpu:0"
         self.dump_period = 50  # dump things from trainer after this many steps
@@ -25,14 +25,22 @@ class AgentConf(AttrDict):
         self.use_double_q = True  # keep 2 espimates of Q function to address over-estimation bias [Mnih et al]
         self.use_soft_targets = True  # Target update method (see SAC paper)
         self.squash_rewards = True  # Reduce reward variance with transform from [arXiv:1805.11593]
-        """^^^Instantiate a replay wrapper which reduces variance of the stored rewards for numeric stability"""
-
+        """`squash_rewards`: Instantiate a replay wrapper which reduces variance of the stored rewards for numeric stability"""
         self.use_sde = False  # State Dependent Exploration [arXiv:2005.05719]
-        """Parametize a random network that predicts noise for our actions conditioned on state.
+        """`use_sde`: Parametize a random network that predicts noise for our actions conditioned on state.
         The weights and activations are designed to ensure the output is distributed as: Normal(μ=0,σ=1)
         We use this for reparametization instead of a true random gaussian sample.
         This way the noise is state-dependent & temporally correlated; less jerky         
         """
+
+        self.use_nStep_lowerbounds = True  # Optimality tightening for deep Q Learning [https://arxiv.org/abs/1611.01606]
+        """`use_nStep_lowerbounds`: Sets a lowerbound for the Q-value using the sampled returns
+        """
+        self.use_bootstrap_nstep = True  # Bootstrapped formulation of the n-step lowerbound based on [https://arxiv.org/abs/1611.01606]
+        """`use_nStep_lowerbounds`: Sets a lowerbound for the Q-value by:
+         - summing the rewards over the time window in the minibatch
+         - using the target q function to approximate the rest
+         """
 
         # hyper params
         self.lr = 3e-4  # learning rate
@@ -42,7 +50,8 @@ class AgentConf(AttrDict):
         self.temporal_len = 50
         self.grad_clip = 20
         self.initial_log_alpha = -2  # starting point for entropy tuning (SAC)
-        self.sde_update_interval = 50 # how many steps before resetting SDE gaussian
+        self.sde_update_interval = 50  # how many steps before resetting SDE gaussian
+        self.mc_return_step = 1000
 
         self.enable_profiling = False
 
