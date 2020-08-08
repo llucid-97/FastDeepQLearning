@@ -37,10 +37,11 @@ class AgentConf(AttrDict):
         self.use_nStep_lowerbounds = True  # Optimality tightening for deep Q Learning [https://arxiv.org/abs/1611.01606]
         """`use_nStep_lowerbounds`: Sets a lowerbound for the Q-value using the sampled returns
         """
-        self.use_bootstrap_nstep = True  # Bootstrapped formulation of the n-step lowerbound based on [https://arxiv.org/abs/1611.01606]
+        self.use_bootstrap_nstep = False  # Bootstrapped formulation of the n-step lowerbound based on [https://arxiv.org/abs/1611.01606]
         """`use_nStep_lowerbounds`: Sets a lowerbound for the Q-value by:
          - summing the rewards over the time window in the minibatch
          - using the target q function to approximate the rest
+         Accelerates training, but may worsen stability compared to nStep only
          """
 
         # hyper params

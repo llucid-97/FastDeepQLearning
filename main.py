@@ -13,13 +13,14 @@ def main():
     # configure the environment
     env_conf = Env.EnvConf()
     env_conf.suite = "classic"
-    env_conf.name = "CartPole-v1"
+    env_conf.name = "MountainCarContinuous-v0"
     global_conf.update(env_conf)  # merge
 
     # configure the agent
     agent_conf = Agent.AgentConf()
     agent_conf.num_instances = 4
     agent_conf.algorithm = "sac"
+    # agent_conf.use_sde = True
     global_conf.update(agent_conf)
 
     launch_experiment(global_conf)
