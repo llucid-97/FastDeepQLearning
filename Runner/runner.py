@@ -31,6 +31,7 @@ class Runner:
         # make agent: It is responsible for its own training asynchronously, and provides an API for inference
         self.agent = Agent.make(conf, self.replay_shards)
         self.agent.to(conf.inference_device)
+        self.agent.eval() # IMPORTANT MODEL FUNCTIONALITY MAY RELY ON WHETHER IN TRAIN/EVAL MODE! DO NOT REMOVE ME
 
     def launch(self):
         """launch thread workers for each stage of the pipeline"""
