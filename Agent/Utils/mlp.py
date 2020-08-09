@@ -9,7 +9,7 @@ def xavier_init_(m):
 
 
 class VanillaMLP(nn.Module):
-    def __init__(self, in_features, out_features, hidden_sizes: tuple, activation_class=nn.ReLU):
+    def __init__(self, in_features, out_features, hidden_sizes: tuple,activation_class=nn.LeakyReLU):
         super().__init__()
 
         layers = []
@@ -30,12 +30,13 @@ class VanillaMLP(nn.Module):
         return self.net(x)
 
 
-class SkipMLP(nn.Module):
+class SkipAllMLP(nn.Module):
     """feed forward network that uses skip connections for better gradient flow (but more memory-expensive)
+    This variant does the skip in the style of DenseNet; broadcasting to all subsequent layers
     TODO: implement better memory efficiency using https://github.com/gpleiss/efficient_densenet_pytorch
     """
 
-    def __init__(self, in_features, out_features, hidden_sizes: tuple, activation_class=nn.ReLU):
+    def __init__(self, in_features, out_features, hidden_sizes: tuple, activation_class=nn.LeakyReLU):
         super().__init__()
 
         self._depth = len(hidden_sizes)
@@ -55,10 +56,42 @@ class SkipMLP(nn.Module):
 
     def forward(self, x):
         for i, hidden_layer in enumerate(self.feature_extractor):
-            y = hidden_layer(x)
-            x = torch.cat((x, y), dim=-1)
+            h = hidden_layer(x)
+            x = torch.cat((x, h), dim=-1)
 
         return self.head(x)
 
+class SkipHeadMLP(nn.Module):
+    """feed forward network that uses skip connections for better gradient flow (but more memory-expensive)
+    This variant skips to the penultimate layer only
+    TODO: implement better memory efficiency using https://github.com/gpleiss/efficient_densenet_pytorch
+    """
 
-MLP = SkipMLP
+    def __init__(self, in_features, out_features, hidden_sizes: tuple, activation_class=nn.LeakyReLU):
+        super().__init__()
+
+        self._depth = len(hidden_sizes)
+        Linear = nn.Linear
+
+        self.feature_extractor = nn.ModuleList([
+            nn.Sequential(
+                Linear(hidden_sizes[i-1] if i else in_features, hidden_sizes[i]),
+                nn.LeakyReLU(inplace=True),
+            )
+            for i in range(len(hidden_sizes))
+        ])
+
+        penult_dim = in_features + sum(hidden_sizes)
+        self.head = Linear(penult_dim, out_features)
+        self.apply(xavier_init_)
+
+    def forward(self, x):
+        layers = [x]
+        for i, hidden_layer in enumerate(self.feature_extractor):
+            x = hidden_layer(x)
+            layers.append(x)
+        x = torch.cat(layers,dim=-1)
+        return self.head(x)
+
+
+MLP = SkipHeadMLP # which MLP to be used as the global default generic MLP for when the caller doesn't really care.
