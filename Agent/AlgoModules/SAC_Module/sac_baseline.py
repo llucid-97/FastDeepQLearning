@@ -57,6 +57,7 @@ class SoftActorCriticModule(nn.Module):
         self.log_alpha = torch.nn.Parameter(torch.tensor(conf.initial_log_alpha, dtype=torch.float32),
                                             requires_grad=True)
         self.curr_alpha = np.exp(self.log_alpha.item())
+        self._target_update_step = 0
 
     def parameters(self, *args, **kwargs):
         # gives trainable parameters
@@ -67,25 +68,48 @@ class SoftActorCriticModule(nn.Module):
         )
 
     def update_target(self):
-        update_fn = target_updates.soft_update if self.conf.use_soft_targets else target_updates.hard_update
-        update_fn(self.target_actor, self.actor, self.conf.tau)
-        update_fn(self.target_critic, self.critic, self.conf.tau)
+        if self.conf.use_soft_targets:
+            target_updates.soft_update(self.target_actor, self.actor, self.conf.soft_target_update_rate)
+            target_updates.soft_update(self.target_critic, self.critic, self.conf.soft_target_update_rate)
+        else:
+            self._target_update_step += 1
+            if (self._target_update_step % self.conf.hard_target_update_period == 0):
+                target_updates.hard_update(self.target_actor, self.actor)
+                target_updates.hard_update(self.target_critic, self.critic)
 
     def act(self, state):
         return self.actor.forward(state)
 
-    def critic_loss(self, curr_xp: T.Dict[str, Tensor], next_xp):
+    def critic_loss(self, curr_xp: T.Dict[str, Tensor], next_xp: T.Dict[str, Tensor]):
         """Expects tensors to be pre-sliced TD style!"""
         summaries = {}
         with torch.no_grad():
-            # Get Action prediction from target policy network
-            next_action, next_log_pi, _ = self.target_actor(next_xp["state"])
+            # Number of samples t
+            next_action, next_log_pi, _ = self.target_actor(next_xp["state"],self.conf.num_target_samples)
             entropy = -next_log_pi
-            next_state_action = torch.cat((next_xp["state"], next_action), dim=-1)
+
+            if self.conf.num_target_samples > 1:
+                next_state = next_xp["state"].unsqueeze(-2)
+                shape = list(next_state.shape)
+                shape[-2] = self.conf.num_target_samples
+                next_state = next_state.expand(*shape)
+            else:
+                next_state = next_xp["state"]
+
+            next_state_action = torch.cat((next_state, next_action), dim=-1)
 
             # Get TD target
-            target_q = self.target_critic(next_state_action) + self.curr_alpha * entropy
+            target_q:Tensor = self.target_critic(next_state_action)
+            if self.conf.use_max_entropy_in_critic:
+                target_q = target_q + self.curr_alpha * entropy
+
+            # Handle over-estimation bias
             target_q, _ = torch.min(target_q, dim=-1, keepdim=True)  # for ensemble Q learning.
+
+            # Maximise over sampled actions (if multiple)
+            if self.conf.num_target_samples > 1:
+                target_q,_ = target_q.max(dim=-2)
+
             td_target = next_xp["reward"] + next_xp["mask"] * self.conf.gamma * target_q
             assert td_target.shape == target_q.shape
 
@@ -139,7 +163,8 @@ class SoftActorCriticModule(nn.Module):
                 ).relu_()
                 with torch.no_grad():
                     summaries["n_step_bootstrap_violations"] = torch.logical_not(
-                        bootstrap_n_step_lowerbound == 0).sum().float() / np.prod(bootstrap_n_step_lowerbound.shape).item()
+                        bootstrap_n_step_lowerbound == 0).sum().float() / np.prod(
+                        bootstrap_n_step_lowerbound.shape).item()
 
         return q_loss, bootstrap_n_step_lowerbound, summaries
 

@@ -23,8 +23,10 @@ class AgentConf(AttrDict):
 
         # Optional Components
         self.use_async_train = True # Do training in another process and sync parameters periodically [arXiv:1803.00933]
-        self.use_double_q = True  # keep 2 espimates of Q function to address over-estimation bias [arXiv:1509.06461]
-        self.use_soft_targets = True  # Target update method (see SAC paper)
+        self.use_double_q = False  # keep 2 espimates of Q function to address over-estimation bias [arXiv:1509.06461]
+        self.num_target_samples = 3
+        self.use_max_entropy_in_critic = False
+        self.num_critic_predictions = 10  # number of outputs for each critic. Basically an ensemble over the last layer.
         self.squash_rewards = True  # Reduce reward variance with transform from [arXiv:1805.11593]
         """`squash_rewards`: Instantiate a replay wrapper which reduces variance of the stored rewards for numeric stability"""
         self.use_sde = False  # State Dependent Exploration [arXiv:2005.05719]
@@ -47,7 +49,14 @@ class AgentConf(AttrDict):
         # hyper params
         self.lr = 3e-4  # learning rate
         self.gamma = 0.99  # discount factor
-        self.tau = 5e-2  # soft target update rate
+
+        """Target update scheme: How to update the target networks.
+        Soft-update uses Polyak averaging of the target network with the new online weights
+        Hard updates does a direct copy once every n steps"""
+        self.use_soft_targets = True
+        self.soft_target_update_rate = 5e-2
+        self.hard_target_update_period = 200
+
         self.batch_size = 256
         self.temporal_len = 50
         self.grad_clip = 20

@@ -17,10 +17,21 @@ def make_critic(conf: AgentConf, input_dim):
     from gym.spaces import Discrete
     num_actions = conf.action_space.n if isinstance(conf.action_space, Discrete) else conf.action_space.shape[-1]
     if conf.use_double_q:
-        return DoubleQNetwork(input_dim + num_actions, 1, conf.mlp_hidden_dims, conf.mlp_activation)
+        return DoubleQNetwork(input_dim + num_actions, conf.num_critic_predictions, conf.mlp_hidden_dims, conf.mlp_activation)
     else:
-        return mlp.MLP(input_dim + num_actions, 1, conf.mlp_hidden_dims, conf.mlp_activation)
+        return mlp.MLP(input_dim + num_actions, conf.num_critic_predictions, conf.mlp_hidden_dims, conf.mlp_activation)
 
+
+class DoubleQNetwork(nn.Module):
+    # Creates 2 Q networks and concats their output over the last dimension
+    def __init__(self, *args):
+        super(DoubleQNetwork, self).__init__()
+        self.nets = nn.ModuleList([mlp.MLP(*args), mlp.MLP(*args)])
+
+    def forward(self, x):
+        out = [net.forward(x) for net in self.nets]
+        out = torch.cat(out, dim=-1)
+        return out
 
 class DoubleQNetwork(nn.Module):
     # Creates 2 Q networks and concats their output over the last dimension
