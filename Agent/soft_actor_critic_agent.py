@@ -106,7 +106,8 @@ def train_sac(conf: AgentConf, replays, param_q: mp.Queue):
 
     except Exception as e:
         print(e)
-        traceback.print_stack()
+        traceback.print_tb(e.__traceback__)
+        print()
 
 
 def train_step(step, conf: AgentConf, replays: T.List[TorchDataLoader], sac: nn.Module, optimizer: torch.optim.Adam,

@@ -12,7 +12,7 @@ class GaussianMLP(MLP):
         # define bounds on variance for numeric stability
         self.log_sig_min, self.log_sig_max, self.epsilon = log_sig_min, log_sig_max, epsilon
 
-    def forward(self, state):
+    def forward(self, state,num_samples=1):
         # get gaussian parameters
         logits = super(GaussianMLP, self).forward(state)
         mean, log_std = torch.chunk(logits, 2, dim=-1)
@@ -20,8 +20,16 @@ class GaussianMLP(MLP):
 
         # sample the gaussian
         normal = distributions.Normal(mean, log_std.exp())
-        x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
-        log_prob = normal.log_prob(x_t)
+        # reparameterization trick (mean + std * N(0,1))
+        if num_samples>1:
+            x_t = normal.rsample((num_samples,))
+            log_prob = normal.log_prob(x_t)
+
+            x_t = x_t.permute(*tuple(range(1,len(x_t.shape[:-1]))),0,-1) # make the sample to be dim -2
+            log_prob = log_prob.permute(*tuple(range(1,len(x_t.shape[:-1]))),0,-1) # make the sample to be dim -2
+        else:
+            x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
+            log_prob = normal.log_prob(x_t)
 
         # Enforce Action Bounds
         action = torch.tanh(x_t)

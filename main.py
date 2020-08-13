@@ -19,6 +19,8 @@ def main():
     # configure the agent
     agent_conf = Agent.AgentConf()
     agent_conf.num_instances = 4
+    agent_conf.num_critic_predictions = 10
+    agent_conf.use_double_q = False
     agent_conf.algorithm = "sac"
     # agent_conf.use_sde = True
     global_conf.update(agent_conf)
