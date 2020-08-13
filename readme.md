@@ -5,12 +5,17 @@
 Combining improvements in deep Q Learning for fast and stable training with a modular, configurable agent.
 [Pranjal Tandon's Pytorch Soft Actor Critic](https://github.com/pranz24/pytorch-soft-actor-critic) is used as a baseline. I've added the following optional components atop it:
 
+DONE:
  - Asynchronous Environment rollouts and Parameter Updates base on a combination of [Horgan et al's APEX Pipeline](https://arxiv.org/abs/1803.00933) and [Petrenko et al's SampleFactory](https://arxiv.org/abs/2006.11751). [Discussed here](https://medium.com/@hexxagon6/writing-fast-deep-q-learning-pipelines-on-commodity-hardware-a3c59cdda429)
  - [He et al's variant of n-step returns](https://arxiv.org/abs/1611.01606) : using the sampled return as a lower-bound constraint (penalty actually) on Q predictions to accelerate convergence
 
-WIP:
+DOING:
  - A Discrete Policy for SAC based on [Wah Loon Keng's SLM-Lab baseline](https://github.com/kengz/SLM-Lab)
  - State dependent exploration based on [Raffin & Stulp's gSDE](https://arxiv.org/abs/2005.05719) to make SAC more robust to environments that act like low-pass filters
+ 
+TODO:
+ - Handle image based envs
+ - Automate parameter tuning
 
 ## Motivation:
 The state of the art in Deep RL has been through [ramping up in scale](https://openai.com/blog/ai-and-compute/) scale. But with enough effort, patience and time in optimizing pipelines, people can achieve 80-90%-ish of state of art results with commodity hardware.
