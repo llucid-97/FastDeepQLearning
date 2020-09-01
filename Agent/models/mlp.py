@@ -95,3 +95,14 @@ class SkipHeadMLP(nn.Module):
 
 
 MLP = SkipHeadMLP # which MLP to be used as the global default generic MLP for when the caller doesn't really care.
+
+class MLPEnsemble(nn.Module):
+    # Creates an ensemble of MLPs and concatenates their predictions over the last dimension
+    def __init__(self, *args, **kwargs):
+        super(MLPEnsemble, self).__init__()
+        self.nets = nn.ModuleList([MLP(*args) for _ in range(kwargs["ensemble_size"])])
+
+    def forward(self, x):
+        out = [net.forward(x) for net in self.nets]
+        out = torch.cat(out, dim=-1)
+        return out

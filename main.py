@@ -12,33 +12,42 @@ def main():
 
     # configure the environment
     env_conf = Env.EnvConf()
-    env_conf.suite = "classic"
-    env_conf.name = "LunarLanderContinuous-v2"
+    env_conf.suite = "eleurent_parking"
+    env_conf.name = "random-v32"
     global_conf.update(env_conf)  # merge
 
     # configure the agent
     agent_conf = Agent.AgentConf()
-    agent_conf.num_instances = 4
-    agent_conf.num_critic_predictions = 10
-    agent_conf.use_double_q = False
-    agent_conf.algorithm = "sac"
-    # agent_conf.use_sde = True
+    agent_conf.num_instances = 10
+    agent_conf.inference_device = "cpu"
+    agent_conf.use_HER = True
+    # agent_conf.use_nStep_lowerbounds = False
+    # agent_conf.batch_size = 16
+
+    # agent_conf.inference_device = "cpu"
+    # agent_conf.replay_size = int(1e4)
+    # agent_conf.batch_size = 32
     global_conf.update(agent_conf)
 
     launch_experiment(global_conf)
 
-
-def launch_experiment(config: Agent.AgentConf):
+import typing as T
+def launch_experiment(config: T.Union[Env.EnvConf,Agent.AgentConf]):
     """Launches the experiment"""
 
     # Make a dummy environment so we can get observation and action space data
+    kwargs = {}
     config.log_dir = str(Path(config.log_dir) / time_stamp_str())
     environment = Env.make(config)
     config.obs_space, config.action_space = environment.observation_space, environment.action_space
+    if config.use_HER:
+        kwargs["compute_reward"] = environment.get_reward_functor()
+    import gym
+    config.discrete = isinstance(config.action_space,gym.spaces.Discrete)
     del (environment)
 
     # Launch the experiment
-    runner = Runner(config)
+    runner = Runner(config,**kwargs)
     runner.launch()
 
 
