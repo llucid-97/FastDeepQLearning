@@ -24,10 +24,10 @@ SOFTWARE.
 """
 from .sac_baseline import SoftActorCriticModule
 import torch
-from torch import nn, Tensor as _Tensor
-from Agent.Utils import mlp, gumbel_softmax, gaussian
+from Agent2.Utils import gumbel_softmax
+from Agent.models import mlp
 from torch import nn, Tensor, distributions
-from Agent.conf import AgentConf
+from Agent2.conf import AgentConf
 
 def make_sde_actor(conf: AgentConf, input_dim):
     from gym.spaces import Discrete

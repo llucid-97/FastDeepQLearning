@@ -1,10 +1,27 @@
+from .mlp import MLP
 import torch
 from torch import distributions, Tensor, nn
 from torch.nn import functional as F
-from .mlp import MLP
 
 
-class GumbelSoftmaxDistribution(distributions.RelaxedOneHotCategorical):
+class GumbelMLP(MLP):
+    # MLP that parametizes a gumbel softmax distribution
+    def __init__(self, in_features, out_features, hidden_sizes: tuple, activation_class=nn.ReLU, temperature=1.0):
+        super(GumbelMLP, self).__init__(in_features, out_features, hidden_sizes, activation_class)
+        self.temperature = temperature
+
+    def forward(self, x):
+        logits: Tensor = super(GumbelMLP, self).forward(x)
+        dist = GumbelSoftmax(temperature=torch.tensor(self.temperature, dtype=logits.dtype, device=logits.device),
+                             logits=logits)
+        x_t = dist.rsample()  # for reparameterization trick (mean + std * N(0,1))
+        explore_action = x_t
+        log_prob = dist.log_prob(x_t)
+
+        return explore_action, log_prob, logits
+
+
+class GumbelSoftmax(distributions.RelaxedOneHotCategorical):
     '''
     A differentiable Categorical distribution using reparametrization trick with Gumbel-Softmax
     Explanation http://amid.fish/assets/gumbel.html
@@ -35,20 +52,3 @@ class GumbelSoftmaxDistribution(distributions.RelaxedOneHotCategorical):
             value = F.one_hot(value.long(), self.logits.shape[-1]).float()
             assert value.shape == self.logits.shape
         return - torch.sum(- value * F.log_softmax(self.logits, -1), -1, keepdim=True)
-
-
-class GumbelMLP(MLP):
-    # MLP that parametizes a gumbel softmax distribution
-    def __init__(self, in_features, out_features, hidden_sizes: tuple, activation_class=nn.ReLU, temperature=1.0):
-        super(GumbelMLP, self).__init__(in_features, out_features, hidden_sizes, activation_class)
-        self.temperature = temperature
-
-    def forward(self, x):
-        logits: Tensor = super(GumbelMLP, self).forward(x)
-        dist = GumbelSoftmaxDistribution(temperature=torch.tensor(self.temperature, dtype=logits.dtype, device=logits.device),
-                                         logits=logits)
-        x_t = dist.rsample()  # for reparameterization trick (mean + std * N(0,1))
-        explore_action = x_t
-        log_prob = dist.log_prob(x_t)
-
-        return explore_action, log_prob, logits

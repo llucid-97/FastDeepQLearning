@@ -7,3 +7,6 @@ class EnvConf(AttrDict):
         self.name = "LunarLanderContinuous-v2"
         self.suite = "classic"
         self.max_num_episodes = np.inf
+        self.resolution = (84,84)
+        self.render = True
+        self.force_pixel = False
