@@ -9,7 +9,7 @@ class NStepReturn(ReplayMemoryWrapper):
     """Calculate the MC return before storing it in the replay memory."""
 
     def __init__(self, replay_buffer, n_step, discount,
-                 reward_name="reward", return_name="n_step_return", done_name="ep_done"):
+                 reward_name="reward", return_name="mc_return", done_name="episode_done"):
         if n_step > 1e4:
             Warning("Note: NStepReturn stores ALL experiences in RAM while calculating return. \n"
                     "Time and memory costs are O(n) in n_step, so careful how large you srt this thing")
@@ -61,7 +61,7 @@ def calculate_montecarlo_return(rewards: Iterable, gamma):
     rewards = np.asarray(rewards, dtype=np.float32).squeeze()
     shape = rewards.shape
     if len(shape) == 0:
-        return rewards
+        return np.reshape(rewards,(1,))
     _inner(rewards, gamma, shape[0])
     return rewards
 

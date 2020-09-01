@@ -1,6 +1,6 @@
-from .mlp import MLP
+from Agent.models.mlp import MLP
 import torch
-from torch import nn, Tensor, distributions
+from torch import nn, distributions
 
 
 class GaussianMLP(MLP):

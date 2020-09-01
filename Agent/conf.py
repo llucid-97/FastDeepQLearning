@@ -1,71 +1,69 @@
-import torch
+from pathlib import Path
 from common_utils import AttrDict
-import gym
+from torch import multiprocessing as mp
 
 
 class AgentConf(AttrDict):
-    def __init__(self, obs_space: gym.Space = None, action_space: gym.Space = None):
-        super().__init__(self)
-        self.obs_space, self.action_space = obs_space, action_space
-        self.num_instances = 1
-        self.replay_size = int(5e4)
-        self.log_dir = "logs"
+    def __init__(self):
+        AttrDict.__init__(self)
+        # I/O
+        self.obs_space = None
+        self.action_space = None
+        self.discrete = None
+        self.global_step = mp.Value("i", 0)
+        self.num_instances = 2
+        # environment keys required to run inference
+        self.inference_input_keys = "obs_1d", "obs_2d", "idx", "achieved_goal", "desired_goal"
 
-        self.dtype = torch.float32  # floating point precision
-        self.inference_device = "cuda:0" if torch.cuda.is_available() else "cpu:0"
-        self.training_device = "cuda:0" if torch.cuda.is_available() else "cpu:0"
-        self.dump_period = 50  # dump things from trainer after this many steps
+        # devices
+        import torch
+        self.training_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu:0")
+        self.inference_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu:0")
+        self.dtype = torch.float32
+        # Logging
+        self.log_dir = Path("logs")
+        self.enable_timers = False
+        self.log_interval = 50
+        self.param_update_interval = 50
 
-        self.mlp_hidden_dims = [256]
-        self.mlp_activation = torch.nn.ReLU
-        self.inference_input_keys = "obs", "idx"  # environment keys required to run inference
-        self.algorithm = "random"  # [random | sac | ]
-
-        # Optional Components
-        self.use_async_train = True # Do training in another process and sync parameters periodically [arXiv:1803.00933]
-        self.use_double_q = False  # keep 2 espimates of Q function to address over-estimation bias [arXiv:1509.06461]
-        self.num_target_samples = 3
-        self.use_max_entropy_in_critic = False
-        self.num_critic_predictions = 10  # number of outputs for each critic. Basically an ensemble over the last layer.
-        self.squash_rewards = True  # Reduce reward variance with transform from [arXiv:1805.11593]
-        """`squash_rewards`: Instantiate a replay wrapper which reduces variance of the stored rewards for numeric stability"""
-        self.use_sde = False  # State Dependent Exploration [arXiv:2005.05719]
-        """`use_sde`: Parametize a random network that predicts noise for our actions conditioned on state.
-        The weights and activations are designed to ensure the output is distributed as: Normal(μ=0,σ=1)
-        We use this for reparametization instead of a true random gaussian sample.
-        This way the noise is state-dependent & temporally correlated; less jerky         
-        """
-
-        self.use_nStep_lowerbounds = True  # Optimality tightening for deep Q Learning [https://arxiv.org/abs/1611.01606]
-        """`use_nStep_lowerbounds`: Sets a lowerbound for the Q-value using the sampled returns
-        """
-        self.use_bootstrap_nstep = False  # Bootstrapped formulation of the n-step lowerbound based on [https://arxiv.org/abs/1611.01606]
-        """`use_nStep_lowerbounds`: Sets a lowerbound for the Q-value by:
-         - summing the rewards over the time window in the minibatch
-         - using the target q function to approximate the rest
-         Accelerates training, but may worsen stability compared to nStep only
-         """
-
-        # hyper params
-        self.lr = 3e-4  # learning rate
-        self.gamma = 0.99  # discount factor
-
-        """Target update scheme: How to update the target networks.
-        Soft-update uses Polyak averaging of the target network with the new online weights
-        Hard updates does a direct copy once every n steps"""
-        self.use_soft_targets = True
-        self.soft_target_update_rate = 5e-2
-        self.hard_target_update_period = 200
-
+        # replay
         self.batch_size = 256
-        self.temporal_len = 50
-        self.grad_clip = 20
-        self.initial_log_alpha = -2  # starting point for entropy tuning (SAC)
-        self.sde_update_interval = 50  # how many steps before resetting SDE gaussian
-        self.mc_return_step = 1000
+        self.replay_size = int(5e4)
+        self.temporal_len = 50  # Note: this implicitly applies temoral consistency loss (Pohlen et al 2018)
+        self.clip_grad_norm = 20
 
-        self.enable_profiling = False
+        # Algo and components
+        self.algorithm = "deep_q_learning"
 
-    @property
-    def discrete(self):
-        return isinstance(self.action_space, gym.spaces.Discrete)
+        self.use_nStep_lowerbounds = True  # Lowerbound on Q to speed up convergence [https://arxiv.org/abs/1611.01606]
+        self.nStep_return_steps = 1000
+        self.use_max_entropy_q = True  # Intrinsic reward for random behavior while still following objective [https://arxiv.org/abs/1812.11103]
+        self.use_double_q = False  # Fix an overestimation bias in Deep Q learning [https://arxiv.org/abs/1509.06461]
+        self.num_q_predictions = 10
+        self.use_squashed_rewards = True  # Apply pohlen transform [arXiv:1805.11593] to reduce variance and stabilize training
+        self.use_hard_updates = False  # False-> Use polyak averaging for target networks. True-> Periodic hard updates
+
+        # TODO: Work In Progress:
+        self.use_HER = False
+        self.use_bootstrap_minibatch_nstep = False
+        self.use_async_train = True  # TODO: Fix pipeline stall issue when this is disabled
+        # ^^^^^^^^^^^^^^^^^^^^^^ API V4 Components
+        self.use_decoder = False  # Map latent space back to obs space (for visualization only)
+        self.use_hsv_data_augmentation = False  # Use standard vision data augmentation tricks on hsv images
+        self.use_strided_rnn = False
+
+        # hyperparams
+        self.init_log_alpha = -2  # starting point for entropy tuning (SAC)
+        self.gamma = 0.99
+        self.learning_rate = 3e-4
+        self.tau = 5e-2
+        self.hard_update_interval = 200
+        self.n_quantiles = 32
+        self.quantile_embedding_dim = 64
+        self.kappa = 1.0
+
+        # Model arch hyperparams
+        self.conv_channels = 32
+        self.conv_depth = 4
+        self.mlp_hidden_dims = [256]
+        self.latent_state_dim = 256
