@@ -27,7 +27,7 @@ class Runner:
         self._queue_to_replay_handler = [Queue(maxsize=1) for _ in range(conf.num_instances)]
 
         # shards are separate replay memories for each env-actor pair so we don't violate FIFO assumptions for storage
-        shards, self.replay_shards = _make_replay_shards(conf, **kwargs)
+        shards, self.replay_shards = Replay.make(conf, **kwargs)
 
         # make agent: It is responsible for its own training asynchronously, and provides an API for inference
         self.agent = Agent.make(conf, shards)
@@ -158,21 +158,4 @@ class Runner:
             # logger.add_scalar("Env/EnvStep_Score", score, total_step)
 
 
-def _make_replay_shards(conf: Agent.AgentConf, **kwargs) -> T.Tuple[T.List[Replay.AsyncReplayMemory]]:
-    """Helper function to construct the replay memories"""
-    # Reader Shards
-    shards = [Replay.AsyncReplayMemory(
-        conf.replay_size, conf.batch_size, conf.temporal_len
-    ) for _ in range(conf.num_instances)]
 
-    # Construct optional wrappers around it for modular transformations
-    writer_wrappers = shards
-    if conf.use_squashed_rewards:
-        writer_wrappers = [Replay.wrappers.squash_rewards.SquashRewards(r) for r in writer_wrappers]
-    if conf.use_HER:
-        writer_wrappers = [Replay.wrappers.her.HindsightNStepReplay(r, conf.nStep_return_steps, conf.gamma,
-                                                                    kwargs["compute_reward"]) for r in writer_wrappers]
-    if conf.use_nStep_lowerbounds and not conf.use_HER:
-        writer_wrappers = [Replay.wrappers.nstep_return.NStepReturn(r, conf.nStep_return_steps, conf.gamma) for r in
-                           writer_wrappers]
-    return shards, writer_wrappers

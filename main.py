@@ -12,8 +12,8 @@ def main():
 
     # configure the environment
     env_conf = Env.EnvConf()
-    env_conf.suite = "eleurent_parking"
-    env_conf.name = "random-v32"
+    env_conf.suite = "bit_flip"
+    env_conf.name = "random-v8"
     global_conf.update(env_conf)  # merge
 
     # configure the agent
@@ -21,8 +21,8 @@ def main():
     agent_conf.num_instances = 10
     agent_conf.inference_device = "cpu"
     agent_conf.use_HER = True
-    # agent_conf.use_nStep_lowerbounds = False
-    # agent_conf.batch_size = 16
+    agent_conf.use_nStep_lowerbounds = False
+    agent_conf.num_q_networks = 5
 
     # agent_conf.inference_device = "cpu"
     # agent_conf.replay_size = int(1e4)
