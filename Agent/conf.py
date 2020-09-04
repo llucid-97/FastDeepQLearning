@@ -38,8 +38,9 @@ class AgentConf(AttrDict):
         self.use_nStep_lowerbounds = True  # Lowerbound on Q to speed up convergence [https://arxiv.org/abs/1611.01606]
         self.nStep_return_steps = 1000
         self.use_max_entropy_q = True  # Intrinsic reward for random behavior while still following objective [https://arxiv.org/abs/1812.11103]
-        self.use_double_q = False  # Fix an overestimation bias in Deep Q learning [https://arxiv.org/abs/1509.06461]
+        self.num_q_networks = 2
         self.num_q_predictions = 10
+
         self.use_squashed_rewards = True  # Apply pohlen transform [arXiv:1805.11593] to reduce variance and stabilize training
         self.use_hard_updates = False  # False-> Use polyak averaging for target networks. True-> Periodic hard updates
 

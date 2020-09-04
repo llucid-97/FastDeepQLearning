@@ -5,11 +5,12 @@ from collections import deque, defaultdict
 from .wrapper_base_class import ReplayMemoryWrapper
 from .nstep_return import calculate_montecarlo_return
 
-
 class HindsightNStepReplay(ReplayMemoryWrapper):
     """Hindsight Experience Replay with MC Lowerbounds
     This hinges on the assumptions:
     - Episode terminates when goal is reached!
+
+    NOTE: NOT COMPATIBLE WITH SQUASH_REWARDS OR NSTEP RETURNS WRAPPERS!
     """
 
     def __init__(self, replay_buffer, n_step, discount, compute_reward: T.Callable):
@@ -18,7 +19,6 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
                     "Time and memory costs are O(n) in n_step, so careful how large you srt this thing")
         ReplayMemoryWrapper.__init__(self, replay_buffer)
         self.n_step, self.discount = n_step, discount
-        self.win_reward = 200
         self.compute_reward = compute_reward
         self._reset()
 
@@ -34,7 +34,9 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
 
         if experience["episode_done"]:
             self._flush()
-            if not self.compute_reward(self.buffers["achieved_goal"][0], self.buffers["desired_goal"][0], None)[1]:
+            task_successful = self.compute_reward(self.buffers["achieved_goal"][0], self.buffers["desired_goal"][0], None)[1]
+            if not task_successful:
+                # generate a virtual episode using hindsight
                 self._hindsight_flush()
             self._reset()  # clear all buffers
 
@@ -54,7 +56,6 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
     def _hindsight_flush(self):
         hindsight_goal = self.buffers["achieved_goal"][0]
         # Calculate what our rewards WOULD HAVE BEEN if we were working towards the state we ended up at
-        # TODO: Make it also return DONE due to success so we know not to backprop future states into it :)
         reward = []
         done = []
         step = []
