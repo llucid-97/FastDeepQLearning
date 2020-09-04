@@ -6,7 +6,7 @@
 Combining improvements in deep Q Learning for fast and stable training with a modular, configurable agent.  
 [Pranjal Tandon's Pytorch Soft Actor Critic](https://github.com/pranz24/pytorch-soft-actor-critic) is used as a baseline. I've added the following optional components atop it:  
   
-Features:  
+### Features:  
  - Asynchronous Environment rollouts and Parameter Updates base on a combination of [Horgan et al's APEX Pipeline](https://arxiv.org/abs/1803.00933) and [Petrenko et al's SampleFactory](https://arxiv.org/abs/2006.11751). [Discussed here](https://medium.com/@hexxagon6/writing-fast-deep-q-learning-pipelines-on-commodity-hardware-a3c59cdda429)  
  - [He et al's variant of n-step returns](https://arxiv.org/abs/1611.01606) : using the sampled return as a lower-bound constraint (penalty actually) on Q predictions to accelerate convergence  
  - [Hindsight Experience Replay](https://arxiv.org/abs/1707.01495) : A data augmentation technique for Goal-directed Environments. It creates synthetic experiences where we pretend the goal state we achieved was the goal state we desired all along, and recalculate the rewards that we would have achieved accordingly. 
