@@ -18,10 +18,8 @@ def make_actor(conf: AgentConf, input_dim):
 
 def make_critic(conf: AgentConf, input_dim):
     input_dim = input_dim + (conf.action_space.n if conf.discrete else conf.action_space.shape[-1])
-    if conf.use_double_q:
-        return mlp.MLPEnsemble(input_dim, conf.num_q_predictions, conf.mlp_hidden_dims, ensemble_size=2)
-    else:
-        return mlp.MLP(input_dim, conf.num_q_predictions, conf.mlp_hidden_dims)
+    return mlp.MLPEnsemble(input_dim, conf.num_q_predictions, conf.mlp_hidden_dims,
+                           ensemble_size=conf.num_q_networks)
 
 
 class SoftActorCritic(nn.Module):
@@ -85,7 +83,9 @@ class SoftActorCritic(nn.Module):
 
         # Get online critic predictions
         action = curr_xp["action_onehot"] if self.conf.discrete else curr_xp["action"]
-        q_pred = self.critic(torch.cat((curr_xp["state"], action), dim=-1))
+        q_pred: Tensor = self.critic(torch.cat((curr_xp["state"], action), dim=-1))
+        summaries["q_pred_mu"] = q_pred.mean()
+        summaries["q_pred_var"] = q_pred.var()
 
         # Compute bellman loss. Ignore the warning: i'm just abusing the broadcast
         q_loss = F.smooth_l1_loss(q_pred, td_target, reduction="none")
