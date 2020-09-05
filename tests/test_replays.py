@@ -1,3 +1,12 @@
+import os, sys, pathlib
+if __name__ == '__main__':
+
+    sys.path.append(os.getcwd())  # cwd
+    sys.path.append(
+        str(
+            pathlib.Path(os.path.dirname(os.path.realpath(__file__))).parent
+        )
+    )
 from franQ import Replay
 from franQ.Replay.async_replay_memory import AsyncReplayMemory
 from franQ.Replay.replay_memory import ReplayMemory
@@ -8,7 +17,7 @@ def test_nstep_return():
     discount = 0.99
     n_step = 1000
     replay = ReplayMemory(1001, batch_size=128, temporal_len=1)
-    replay = franQ.Replay.wrappers.NStepReturn(replay, n_step=n_step, discount=discount)
+    replay = Replay.wrappers.NStepReturn(replay, n_step=n_step, discount=discount)
 
     # put 1000 entries
     for i in range(n_step):
@@ -81,7 +90,7 @@ if __name__ == '__main__':
         test_size()
         test_temporal_consistency()
         print("passed!")
-        exit(0)
+        os._exit(0)
 
 
     run_tests()

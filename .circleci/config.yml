@@ -1,0 +1,34 @@
+version: 2.1
+
+#orbs:
+#  python: circleci/python@0.2.1
+
+jobs:
+  build-and-test:
+    docker:
+      - image: circleci/python:3.6
+    steps:
+      - checkout
+      - run:
+          command: python --version
+      - run:
+          command: pip --version
+      - restore_cache:
+          keys:
+            - pip-{{ checksum "requirements.txt"  }}
+      - run:
+          command: pip install --user -r requirements.txt
+      - save_cache:
+          key: pip-{{ checksum "requirements.txt"  }}
+          paths:
+            - /home/circleci/.local/lib/
+      - run:
+          command: pip install --user -r requirements_no_cuda.txt
+      - run:
+          command: python ./tests/test_replays.py
+          name: Test
+
+workflows:
+  main:
+    jobs:
+      - build-and-test
