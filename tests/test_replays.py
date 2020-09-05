@@ -1,6 +1,6 @@
-import Replay
-from Replay.async_replay_memory import AsyncReplayMemory
-from Replay.replay_memory import ReplayMemory
+from franQ import Replay
+from franQ.Replay.async_replay_memory import AsyncReplayMemory
+from franQ.Replay.replay_memory import ReplayMemory
 import numpy as np
 
 
@@ -8,7 +8,7 @@ def test_nstep_return():
     discount = 0.99
     n_step = 1000
     replay = ReplayMemory(1001, batch_size=128, temporal_len=1)
-    replay = Replay.wrappers.NStepReturn(replay, n_step=n_step, discount=discount)
+    replay = franQ.Replay.wrappers.NStepReturn(replay, n_step=n_step, discount=discount)
 
     # put 1000 entries
     for i in range(n_step):
@@ -51,7 +51,7 @@ def test_size():
 def test_temporal_consistency():
     import numpy as np
     import torch
-    from Replay.wrappers import torch_dataloader
+    from franQ.Replay.wrappers import torch_dataloader
     kwargs = {
         "maxlen": int(5e3),
         "batch_size": 256,

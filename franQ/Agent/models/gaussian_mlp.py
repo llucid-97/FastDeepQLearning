@@ -1,4 +1,4 @@
-from Agent.models.mlp import MLP
+from .mlp import MLP
 import torch
 from torch import nn, distributions
 

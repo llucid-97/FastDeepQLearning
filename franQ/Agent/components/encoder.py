@@ -1,7 +1,7 @@
 import torch, typing
 from torch import nn, Tensor
-from Agent.models.mlp import MLP
-from Agent.conf import AgentConf
+from franQ.Agent.models.mlp import MLP
+from franQ.Agent.conf import AgentConf
 import numpy as np
 
 
@@ -29,7 +29,7 @@ class Encoder(nn.Module):
                 input_shape += 2 * np.prod(conf.obs_space.spaces["desired_goal"].shape).item()
             except KeyError:
                 pass
-            from Agent.models.identity import Identity
+            from franQ.Agent.models.identity import Identity
 
             self.net["obs_1d"] = MLP(input_shape, conf.latent_state_dim, conf.mlp_hidden_dims)
             latent_dim += conf.latent_state_dim #+ input_shape

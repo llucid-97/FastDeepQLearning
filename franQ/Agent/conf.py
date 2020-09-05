@@ -1,5 +1,5 @@
 from pathlib import Path
-from common_utils import AttrDict
+from franQ.common_utils import AttrDict
 from torch import multiprocessing as mp
 
 

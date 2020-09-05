@@ -2,9 +2,10 @@ import torch
 from torch import nn, Tensor, jit, distributions
 from torch.nn import functional as F
 import numpy as np
-from Agent.models import mlp, gumbel_mlp, gaussian_mlp
-from Agent.utils.common import hard_update, soft_update
-from Agent.conf import AgentConf
+from franQ.Agent.models import mlp, gumbel_mlp
+from franQ.Agent.models import gaussian_mlp
+from franQ.Agent.utils.common import hard_update, soft_update
+from franQ.Agent.conf import AgentConf
 import typing as T
 
 

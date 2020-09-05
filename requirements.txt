@@ -1,0 +1,4 @@
+torch===1.6.0 -f https://download.pytorch.org/whl/torch_stable.html
+gym==0.17.2
+numba==0.51.2
+opencv-python==4.4.0.42
