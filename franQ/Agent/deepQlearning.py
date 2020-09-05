@@ -1,11 +1,11 @@
 from torch import nn, multiprocessing as mp, Tensor
 
-from Replay.wrappers.torch_dataloader import TorchDataLoader
+from franQ.Replay.wrappers import TorchDataLoader
 
 import itertools
 
 import typing as T, logging
-from Agent.conf import AgentConf, AttrDict
+from franQ.Agent.conf import AgentConf, AttrDict
 from collections import OrderedDict
 
 import torch
@@ -15,8 +15,8 @@ from pathlib import Path
 from threading import Thread
 from queue import Queue
 
-from Agent.utils.common import squash_variance, soft_update, hard_update
-from Agent.components import soft_actor_critic, encoder
+from .utils.common import squash_variance, soft_update, hard_update
+from .components import soft_actor_critic, encoder
 
 ExperienceDict_T = T.Dict[str, Tensor]
 

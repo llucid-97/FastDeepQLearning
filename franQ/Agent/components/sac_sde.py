@@ -25,7 +25,7 @@ SOFTWARE.
 from .sac_baseline import SoftActorCriticModule
 import torch
 from Agent2.Utils import gumbel_softmax
-from Agent.models import mlp
+from franQ.Agent.models import mlp
 from torch import nn, Tensor, distributions
 from Agent2.conf import AgentConf
 

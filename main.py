@@ -1,8 +1,8 @@
-from common_utils import AttrDict,time_stamp_str
+from franQ.common_utils import AttrDict,time_stamp_str
 from pathlib import Path
-import Agent, Env
+from franQ import Env, Agent
 import multiprocessing as mp
-from Runner.runner import Runner
+from franQ.Runner.runner import Runner
 
 
 def main():
@@ -32,7 +32,7 @@ def main():
     launch_experiment(global_conf)
 
 import typing as T
-def launch_experiment(config: T.Union[Env.EnvConf,Agent.AgentConf]):
+def launch_experiment(config: T.Union[Env.EnvConf, Agent.AgentConf]):
     """Launches the experiment"""
 
     # Make a dummy environment so we can get observation and action space data

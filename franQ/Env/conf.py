@@ -1,4 +1,4 @@
-from common_utils import AttrDict
+from franQ.common_utils import AttrDict
 class EnvConf(AttrDict):
     def __init__(self):
         super().__init__()

@@ -1,6 +1,6 @@
 from torch import nn, multiprocessing as mp, Tensor
 import typing as T
-from Agent.conf import AgentConf
+from franQ.Agent.conf import AgentConf
 from collections import OrderedDict
 import torch
 import logging

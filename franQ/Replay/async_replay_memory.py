@@ -1,4 +1,4 @@
-from Replay.replay_memory import ReplayMemory, OversampleError
+from franQ.Replay.replay_memory import ReplayMemory, OversampleError
 from torch import multiprocessing as mp
 from threading import Thread
 import time

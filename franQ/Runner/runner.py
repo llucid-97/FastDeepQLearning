@@ -1,13 +1,13 @@
 from threading import Thread
 from queue import Queue
-import Agent, Env, Replay
-import torch, numpy as np
+from franQ import Env, Replay, Agent, common_utils
+import torch
 from torch import Tensor
 from torch.utils.tensorboard import SummaryWriter
 import typing as T
 from pathlib import Path
-import common_utils, itertools
-from common_utils import TimerSummary
+import itertools
+from franQ.common_utils import TimerSummary
 import copy
 
 

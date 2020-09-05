@@ -2,7 +2,9 @@ from .async_replay_memory import AsyncReplayMemory
 from .replay_memory import ReplayMemory
 from . import wrappers
 
-import Agent as __Agent
+from franQ import Agent as __Agent
+
+
 def make(conf: __Agent.AgentConf, **kwargs):
     """Helper function to construct the replay memories"""
     # Reader Shards
@@ -16,7 +18,7 @@ def make(conf: __Agent.AgentConf, **kwargs):
         writer_wrappers = [wrappers.squash_rewards.SquashRewards(r) for r in writer_wrappers]
     if conf.use_HER:
         writer_wrappers = [wrappers.her.HindsightNStepReplay(r, conf.nStep_return_steps, conf.gamma,
-                                                                    kwargs["compute_reward"]) for r in writer_wrappers]
+                                                             kwargs["compute_reward"]) for r in writer_wrappers]
     if conf.use_nStep_lowerbounds and not conf.use_HER:
         writer_wrappers = [wrappers.nstep_return.NStepReturn(r, conf.nStep_return_steps, conf.gamma) for r in
                            writer_wrappers]
