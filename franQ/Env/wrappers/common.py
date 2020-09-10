@@ -2,11 +2,10 @@ from collections import deque
 import os
 
 import cv2
-from .wrapper_base import Wrapper, ObservationWrapper, RewardWrapper
+from .wrapper_base import Wrapper, ObservationWrapper
 import gym
 import gym.spaces as spaces
 import numpy as np
-from gym.wrappers.time_limit import TimeLimit
 
 os.environ.setdefault("PATH", "")
 cv2.ocl.setUseOpenCL(False)

@@ -22,21 +22,22 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
-from .sac_baseline import SoftActorCriticModule
+from .soft_actor_critic import SoftActorCritic
 import torch
-from Agent2.Utils import gumbel_softmax
 from franQ.Agent.models import mlp
+# from franQ.Agent.models import gumbel_mlp
+from franQ.Agent.conf import AgentConf
 from torch import nn, Tensor, distributions
-from Agent2.conf import AgentConf
+
 
 def make_sde_actor(conf: AgentConf, input_dim):
     from gym.spaces import Discrete
     if isinstance(conf.action_space, Discrete):
-        raise NotImplementedError("TODO: Add this once gaussian is in working state and gumbel softmax policy has been tested in regular SAC!")
-        return gumbel_softmax.GumbelMLP(input_dim, conf.action_space.n, conf.mlp_hidden_dims, conf.mlp_activation)
+        raise NotImplementedError(
+            "TODO: Add this once gaussian is in working state and gumbel softmax policy has been tested in regular SAC!")
+        # return gumbel_softmax.GumbelMLP(input_dim, conf.action_space.n, conf.mlp_hidden_dims, conf.mlp_activation)
     else:
         return SDEGaussianPolicy(input_dim, conf.action_space.shape[-1], conf.mlp_hidden_dims, conf.mlp_activation)
-
 
 
 class SDEGaussianPolicy(nn.Module):
@@ -59,12 +60,12 @@ class SDEGaussianPolicy(nn.Module):
         # Setup the heads
         self.hidden_dim = hidden_dim
         self.mu_logstd = mlp.MLP(hidden_dim, out_features * 2, tuple(), activation_class)
-        self.sde = nn.Linear(hidden_dim, out_features,bias=False)
+        self.sde = nn.Linear(hidden_dim, out_features, bias=False)
         self.reset_sde()
 
     def reset_sde(self):
         # Ensure the sde conserves the variance of the input!
-        nn.init.normal_(self.sde.weight,mean=0.,std=(1. / (self.hidden_dim ** 0.5)))
+        nn.init.normal_(self.sde.weight, mean=0., std=(1. / (self.hidden_dim ** 0.5)))
 
     def forward(self, state):
         if self.feat_x is not None:
@@ -82,11 +83,11 @@ class SDEGaussianPolicy(nn.Module):
             x_t = normal.rsample()
         else:
             with torch.no_grad():
-                state :Tensor = state - state.mean(dim=-1,keepdim=True) # zero mean
-                state = state / state.std().clamp_min(1e-4) # unit variance
+                state: Tensor = state - state.mean(dim=-1, keepdim=True)  # zero mean
+                state = state / state.std().clamp_min(1e-4)  # unit variance
                 sde_sample = self.sde(state)
 
-            x_t = mean + (sde_sample * std) # reparametixation trick
+            x_t = mean + (sde_sample * std)  # reparametixation trick
         log_prob = normal.log_prob(x_t)
 
         # Enforce Action Bounds
@@ -96,13 +97,14 @@ class SDEGaussianPolicy(nn.Module):
         mean = torch.tanh(mean)
         return action, log_prob, mean
 
-class SDESoftActorCriticModule(SoftActorCriticModule):
+
+class SDESoftActorCriticModule(SoftActorCritic):
     """Soft actor critic with state dependent exploration"""
 
     def __init__(self, *args, **kwargs):
-        super(SDESoftActorCriticModule, self).__init__(*args, **kwargs, actor_factory=make_sde_actor)
-        NotImplementedError("SDE is not yet in a working state. DO not use. Only merged changes to stash progress")
-        self._step = 0
+        raise NotImplementedError("SDE is not yet in a working state. DO not use. Only merged changes to stash progress")
+        # super(SDESoftActorCriticModule, self).__init__(*args, **kwargs, actor_factory=make_sde_actor)
+        # self._step = 0
 
     def update_target(self):
         super(SDESoftActorCriticModule, self).update_target()

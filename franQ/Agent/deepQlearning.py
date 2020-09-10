@@ -15,7 +15,7 @@ from pathlib import Path
 from threading import Thread
 from queue import Queue
 
-from .utils.common import squash_variance, soft_update, hard_update
+from .utils.common import soft_update, hard_update
 from .components import soft_actor_critic, encoder
 
 ExperienceDict_T = T.Dict[str, Tensor]
@@ -173,18 +173,14 @@ class DeepQLearning(nn.Module):
                     device=curr_xp["action"].device, dtype=curr_xp["action"].dtype
                 )[curr_xp["action"].view(curr_xp["action"].shape[:-1]).long()]
 
-        # Step 7: Dynamics Model loss
-        def zero():
-            return torch.tensor(0.0, dtype=curr_xp["action"].dtype, device=curr_xp["action"].device, requires_grad=True)
-
         # Step 4: Get the Critic Losses with deep Q Learning
         # Note: NEXT STATE's reward & done used. Very important that this is consistent!!
         q_loss, bootstrapped_lowerbound_loss, q_summaries = self.actor_critic.q_loss(curr_xp, next_xp)
 
-        # Step 6: Get Policy Loss
+        # Get Policy Loss
         pi_loss, alpha_loss, pi_summaries = self.actor_critic.actor_loss(curr_xp)
 
-        # Step 8: Sum it all up
+        # Sum it all up
         assert q_loss.shape == pi_loss.shape == is_contiguous.shape == alpha_loss.shape, \
             f"loss shape mismatch: q={q_loss.shape} pi={pi_loss.shape} c={is_contiguous.shape} a={alpha_loss.shape}"
         task_loss = ((q_loss + pi_loss + alpha_loss) * is_contiguous).mean()  # Once its recurrent, they all use TD

@@ -11,7 +11,7 @@ class NStepReturn(ReplayMemoryWrapper):
     def __init__(self, replay_buffer, n_step, discount,
                  reward_name="reward", return_name="mc_return", done_name="episode_done"):
         if n_step > 1e4:
-            Warning("Note: NStepReturn stores ALL experiences in RAM while calculating return. \n"
+            print("Note: NStepReturn stores ALL experiences in RAM while calculating return. \n"
                     "Time and memory costs are O(n) in n_step, so careful how large you srt this thing")
         ReplayMemoryWrapper.__init__(self, replay_buffer)
         self.n_step, self.discount, self.reward_name, self.return_name, self.done_name = n_step, discount, reward_name, return_name, done_name

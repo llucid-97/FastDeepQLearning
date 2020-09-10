@@ -51,18 +51,18 @@ class RenderObservation(gym.Wrapper):
         else:
             _render(self.last_obs)
 
-    def __del__(self):
-        def kill_proc_tree(pid, including_parent=True):
-            try:
-                parent = psutil.Process(pid)
-                children = parent.children(recursive=True)
-                for child in children:
-                    child.kill()
-                gone, still_alive = psutil.wait_procs(children, timeout=5)
-                if including_parent:
-                    parent.kill()
-                    parent.wait(5)
-            except psutil.NoSuchProcess:
-                print(f"Forced {type(self)} to kill child process")
-
-        # kill_proc_tree(self.render_proc.pid)
+    # def __del__(self):
+    #     def kill_proc_tree(pid, including_parent=True):
+    #         try:
+    #             parent = psutil.Process(pid)
+    #             children = parent.children(recursive=True)
+    #             for child in children:
+    #                 child.kill()
+    #             gone, still_alive = psutil.wait_procs(children, timeout=5)
+    #             if including_parent:
+    #                 parent.kill()
+    #                 parent.wait(5)
+    #         except psutil.NoSuchProcess:
+    #             print(f"Forced {type(self)} to kill child process")
+    #
+    #     # kill_proc_tree(self.render_proc.pid)

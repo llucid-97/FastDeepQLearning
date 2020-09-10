@@ -2,15 +2,14 @@
 Wrappers specifically for Atari
 """
 import os
-import cv2
 from .wrapper_base import Wrapper, RewardWrapper
 import gym
 import numpy as np
 
 os.environ.setdefault("PATH", "")
 
-from .common import FrameSkip, TimeLimit, FrameStack, Nhwc2Nchw, ScaledFloatFrame
-from .common_image import ResizeImage
+from .common import FrameSkip, TimeLimit, FrameStack, ScaledFloatFrame
+from .common_image import ResizeImage,Nhwc2Nchw
 
 
 class NoopResetEnv(Wrapper):
@@ -135,7 +134,7 @@ def wrap_deepmind(
         env = EpisodicLifeEnv(env)
     if "FIRE" in env.unwrapped.get_action_meanings():
         env = FireResetEnv(env)
-    env = ResizeImage(env, width=96, height=96, enable=True)
+    env = ResizeImage(env, width=96, height=96)
     if scale:
         env = ScaledFloatFrame(env)
     if clip_rewards:
