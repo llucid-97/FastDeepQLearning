@@ -2,8 +2,6 @@
 A set of transformations that operate on batches
 """
 import numpy as np
-import torch
-from torch import nn
 
 
 def ImgToUint8(img_batch: np.ndarray):

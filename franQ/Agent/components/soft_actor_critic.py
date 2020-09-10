@@ -1,5 +1,5 @@
 import torch
-from torch import nn, Tensor, jit, distributions
+from torch import nn, Tensor
 from torch.nn import functional as F
 import numpy as np
 from franQ.Agent.models import mlp, gumbel_mlp

@@ -1,9 +1,9 @@
 import numpy as np
-import numba
 import typing as T
 from collections import deque, defaultdict
 from .wrapper_base_class import ReplayMemoryWrapper
 from .nstep_return import calculate_montecarlo_return
+
 
 class HindsightNStepReplay(ReplayMemoryWrapper):
     """Hindsight Experience Replay with MC Lowerbounds
@@ -15,8 +15,8 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
 
     def __init__(self, replay_buffer, n_step, discount, compute_reward: T.Callable):
         if n_step > 1e4:
-            Warning("Note: NStepReturn stores ALL experiences in RAM while calculating return. \n"
-                    "Time and memory costs are O(n) in n_step, so careful how large you srt this thing")
+            print("Note: NStepReturn stores ALL experiences in RAM while calculating return. \n"
+                  "Time and memory costs are O(n) in n_step, so careful how large you srt this thing")
         ReplayMemoryWrapper.__init__(self, replay_buffer)
         self.n_step, self.discount = n_step, discount
         self.compute_reward = compute_reward
@@ -34,7 +34,8 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
 
         if experience["episode_done"]:
             self._flush()
-            task_successful = self.compute_reward(self.buffers["achieved_goal"][0], self.buffers["desired_goal"][0], None)[1]
+            task_successful = \
+            self.compute_reward(self.buffers["achieved_goal"][0], self.buffers["desired_goal"][0], None)[1]
             if not task_successful:
                 # generate a virtual episode using hindsight
                 self._hindsight_flush()
@@ -63,7 +64,7 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
             r, d = self.compute_reward(ag, hindsight_goal, None)
             # Calculate the component of the reward that is NOT due to our current desired_goal
             # (ie things that just happen in the environment)
-            goal_agnostic_reward = self.buffers["reward"][i] -\
+            goal_agnostic_reward = self.buffers["reward"][i] - \
                                    self.compute_reward(ag, self.buffers["desired_goal"][0], None)[0]
             r = goal_agnostic_reward + r
             if d:

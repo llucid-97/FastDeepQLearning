@@ -3,7 +3,6 @@ import typing as T
 from franQ.Agent.conf import AgentConf
 from collections import OrderedDict
 import torch
-import logging
 
 
 class RandomAgent(nn.Module):
@@ -85,7 +84,7 @@ class RandomAgent(nn.Module):
         pass
 
     def get_losses(self, experience_dict):
-        sequence_len = experience_dict["episode_step"].shape[0]
+        # sequence_len = experience_dict["episode_step"].shape[0]
         temporal_continuity = experience_dict["episode_step"][1:] == (experience_dict["episode_step"][:-1] + 1)
         temporal_continuity &= experience_dict["episode_done"][1:]
 

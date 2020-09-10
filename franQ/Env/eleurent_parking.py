@@ -1,7 +1,7 @@
 try:
     import highway_env
 except ImportError as e:
-    Warning("Run: pip install --user git+https://github.com/eleurent/highway-env")
+    print("\n\nRun: pip install --user git+https://github.com/eleurent/highway-env")
     raise e
 import gym
 from .conf import EnvConf
