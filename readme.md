@@ -1,6 +1,8 @@
 
+[![Maintainability](https://api.codeclimate.com/v1/badges/f809ece98a8a572aec9f/maintainability)](https://codeclimate.com/github/llucid-97/FastDeepQLearning/maintainability)
+
 # Fast Deep Q Learning  
-  
+
 <img align="right" width="200" height="183" src="https://i.redd.it/gfkg9wxfmww11.png">  
   
 Combining improvements in deep Q Learning for fast and stable training with a modular, configurable agent.  
