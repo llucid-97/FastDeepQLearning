@@ -35,9 +35,9 @@ def make_sde_actor(conf: AgentConf, input_dim):
     if isinstance(conf.action_space, Discrete):
         raise NotImplementedError(
             "TODO: Add this once gaussian is in working state and gumbel softmax policy has been tested in regular SAC!")
-        # return gumbel_softmax.GumbelMLP(input_dim, conf.action_space.n, conf.mlp_hidden_dims, conf.mlp_activation)
+        # return gumbel_softmax.GumbelMLP(input_dim, conf.action_space.n, conf.enc1d_hidden_dims, conf.mlp_activation)
     else:
-        return SDEGaussianPolicy(input_dim, conf.action_space.shape[-1], conf.mlp_hidden_dims, conf.mlp_activation)
+        return SDEGaussianPolicy(input_dim, conf.action_space.shape[-1], conf.pi_hidden_dims, conf.mlp_activation)
 
 
 class SDEGaussianPolicy(nn.Module):

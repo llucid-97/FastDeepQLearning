@@ -31,7 +31,7 @@ class Encoder(nn.Module):
                 pass
             from franQ.Agent.models.identity import Identity
 
-            self.net["obs_1d"] = MLP(input_shape, conf.latent_state_dim, conf.mlp_hidden_dims)
+            self.net["obs_1d"] = MLP(input_shape, conf.latent_state_dim, conf.enc1d_hidden_dims)
             latent_dim += conf.latent_state_dim #+ input_shape
             # self.net["obs_1d"] = Identity()
             # latent_dim += input_shape

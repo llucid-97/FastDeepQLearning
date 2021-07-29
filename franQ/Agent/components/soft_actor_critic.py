@@ -11,16 +11,16 @@ import typing as T
 
 def make_actor(conf: AgentConf, input_dim):
     if conf.discrete:
-        pi = gumbel_mlp.GumbelMLP(input_dim, conf.action_space.n, conf.mlp_hidden_dims)
+        pi = gumbel_mlp.GumbelMLP(input_dim, conf.action_space.n, conf.pi_hidden_dims)
     else:
-        pi = gaussian_mlp.GaussianMLP(input_dim, conf.action_space.shape[0], conf.mlp_hidden_dims)
+        pi = gaussian_mlp.GaussianMLP(input_dim, conf.action_space.shape[0], conf.pi_hidden_dims)
     return pi
 
 
 def make_critic(conf: AgentConf, input_dim):
     input_dim = input_dim + (conf.action_space.n if conf.discrete else conf.action_space.shape[-1])
-    return mlp.MLPEnsemble(input_dim, conf.num_q_predictions, conf.mlp_hidden_dims,
-                           ensemble_size=conf.num_q_networks)
+    return mlp.MLPEnsemble(input_dim, conf.num_q_predictions, conf.critic_hidden_dims,
+                           ensemble_size=conf.num_critics)
 
 
 class SoftActorCritic(nn.Module):
