@@ -86,7 +86,7 @@ class SoftActorCritic(nn.Module):
         action = curr_xp["action_onehot"] if self.conf.discrete else curr_xp["action"]
         q_pred: Tensor = self.critic(torch.cat((curr_xp["state"], action), dim=-1))
         summaries["q_pred_mu"] = q_pred.mean()
-        summaries["q_pred_var"] = q_pred.var()
+        summaries["q_pred_var"] = q_pred.var(-1).mean()
 
         # Compute bellman loss. Ignore the warning: i'm just abusing the broadcast
         q_loss = F.smooth_l1_loss(q_pred, td_target, reduction="none")
