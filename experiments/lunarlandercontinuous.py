@@ -13,7 +13,7 @@ def main():
     # configure the environment
     env_conf = Env.EnvConf()
     env_conf.suite = "classic"
-    env_conf.name = "LunarLander-v2"
+    env_conf.name = "LunarLanderContinuous-v2"
     env_conf.render = False
     global_conf.update(env_conf)  # merge
 

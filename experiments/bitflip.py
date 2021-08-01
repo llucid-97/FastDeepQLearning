@@ -12,8 +12,8 @@ def main():
 
     # configure the environment
     env_conf = Env.EnvConf()
-    env_conf.suite = "classic"
-    env_conf.name = "LunarLander-v2"
+    env_conf.suite = "bit_flip"
+    env_conf.name = "random-v4"
     env_conf.render = False
     global_conf.update(env_conf)  # merge
 
@@ -25,7 +25,7 @@ def main():
     agent_conf.num_critics = 5
 
     # NOTE: Fewer layers ===> Faster training.
-    agent_conf.enc1d_hidden_dims = []
+    agent_conf.enc1d_hidden_dims = [256]
     agent_conf.pi_hidden_dims = [256]
     agent_conf.critic_hidden_dims = [256, 256]
     agent_conf.init_log_alpha = 0

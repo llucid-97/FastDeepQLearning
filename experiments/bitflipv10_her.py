@@ -12,8 +12,8 @@ def main():
 
     # configure the environment
     env_conf = Env.EnvConf()
-    env_conf.suite = "classic"
-    env_conf.name = "LunarLander-v2"
+    env_conf.suite = "bit_flip"
+    env_conf.name = "random-v10"
     env_conf.render = False
     global_conf.update(env_conf)  # merge
 
@@ -21,11 +21,12 @@ def main():
     agent_conf = Agent.AgentConf()
     agent_conf.num_instances = 3
     agent_conf.inference_device = "cpu"
-    agent_conf.use_nStep_lowerbounds = True
+    agent_conf.use_nStep_lowerbounds = False
+    agent_conf.use_HER = True
     agent_conf.num_critics = 5
 
     # NOTE: Fewer layers ===> Faster training.
-    agent_conf.enc1d_hidden_dims = []
+    agent_conf.enc1d_hidden_dims = [256]
     agent_conf.pi_hidden_dims = [256]
     agent_conf.critic_hidden_dims = [256, 256]
     agent_conf.init_log_alpha = 0
