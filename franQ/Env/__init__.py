@@ -16,6 +16,8 @@ def make(env_conf: EnvConf):
         from .eleurent_parking import Parking as EnvClass
     elif suite == "bit_flip":
         from .bitflip import BitFlippingEnv as EnvClass
+    elif suite in ("cartpolegoal", "cartpole_goal", "cartpole-goal"):
+        from .cartpole_goal import CartPoleGoalEnv as EnvClass
     else:
         raise NotImplementedError(f"Suite {suite} not found!")
     return EnvClass(env_conf)
