@@ -67,15 +67,23 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
                     self.compute_reward(ag, self.buffers["desired_goal"][i], info)[0]
             )
             r = goal_agnostic_reward + goal_reward
-            if d:
+
+            # Splice them into synthetic episodes and calculate retroactive flags and stats (eg MC) based on this split
+            if d or (i==0): # New synthetic episode
                 reward.append([])
                 step.append([])
+            # put rewards into last synthetic episode
             reward[-1].append(r)
             step[-1].append(self.buffers["episode_step"][i])
-            done.append(d)
+            done.append(d) # this doesn't need to be folded into episode lists because we'll just unfold
+            # later when pushing to the true replay
+
+        # Calculate statistics and unfold episodes (concatenate)
         mc_return = np.concatenate([calculate_montecarlo_return(r, self.discount) for r in reward], axis=-1)
         reward = np.concatenate([np.asarray(r) for r in reward], axis=-1)
         step = np.concatenate([np.asarray(s) - s[-1] for s in step], axis=-1)
+
+        # Push to experience replay
         for i in reversed(range(len(mc_return))):
             new_xp_tuple = {k: v[i] for k, v in self.buffers.items()
                             if (len(v) and (k not in self._ignored_keys))}
