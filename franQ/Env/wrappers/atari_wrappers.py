@@ -8,7 +8,7 @@ import numpy as np
 
 os.environ.setdefault("PATH", "")
 
-from .common import FrameSkip, TimeLimit, FrameStack, ScaledFloatFrame
+from .common import FrameSkip, FrameStack, ScaledFloatFrame
 from .common_image import ResizeImage,Nhwc2Nchw
 
 

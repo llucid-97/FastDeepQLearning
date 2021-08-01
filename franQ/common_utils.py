@@ -4,7 +4,11 @@ import time as _time
 class AttrDict(dict):
     """Allow accessing members via getitem for ease of use"""
     __setattr__ = dict.__setitem__
-    __getattr__ = dict.__getitem__
+    def __getattr__(self, item):
+        try:
+            return dict.__getitem__(self,item)
+        except KeyError as e:
+            raise AttributeError(e)
 
     def to_dict(self):
         # For serializing (eg to push across process boundaries)

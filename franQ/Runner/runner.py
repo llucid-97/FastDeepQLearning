@@ -111,7 +111,9 @@ class Runner:
         Transformations must be defined as replay wrappers in init"""
         logger = SummaryWriter(Path(self.conf.log_dir) / f"Runner_replay_{idx}")
         for step in itertools.count():
-            experience_dict = self._queue_to_replay_handler[idx].get()
+            experience_dict :dict = self._queue_to_replay_handler[idx].get()
+            if not self.conf.use_HER:
+                del experience_dict["info"]
 
             with TimerSummary(logger, f"ReplayTransforms_{idx}", group="timers/runner", step=step):
                 self.replay_shards[idx].add(experience_dict)
@@ -129,7 +131,9 @@ class Runner:
             experience = {"reward": 0.0,
                           "episode_done": False,
                           "task_done": False,
-                          "idx": idx}
+                          "idx": idx,
+                          "info": {}
+                          }
             experience.update(env.reset())
             for experience["episode_step"] in itertools.count():
                 with common_utils.TimerSummary(logger, f"Pipeline_Stall{idx}", group="timers/pipeline_stats",
@@ -144,9 +148,10 @@ class Runner:
                 with common_utils.TimerSummary(logger, f"Env_{idx}_Step", group="timers/runner_pipeline",
                                                step=total_step):
                     # Get new experience from environment and populate the dict
-                    obs, experience["reward"], experience["episode_done"], info = env.step(action)
+                    obs, experience["reward"], experience["episode_done"], experience["info"] = env.step(action)
                     experience.update(obs)
-                    experience["task_done"] = experience["episode_done"] and not info.get('TimeLimit.truncated', False)
+                    experience["task_done"] = experience["episode_done"] and not experience["info"].get(
+                        'TimeLimit.truncated', False)
                     if self.conf.render:
                         env.render()
 
@@ -156,6 +161,3 @@ class Runner:
             logger.add_scalar("Env/Episode_Score", score, episode)
             logger.add_scalar("Env/TrainStep_Score", score, self.agent.iteration)
             # logger.add_scalar("Env/EnvStep_Score", score, total_step)
-
-
-
