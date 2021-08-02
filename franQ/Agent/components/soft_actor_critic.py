@@ -94,7 +94,7 @@ class SoftActorCritic(nn.Module):
 
         # Get aux losses & Optimality tightening
         bootstrap_minibatch_nstep_lowerbound = None
-        if self.conf.use_nStep_lowerbounds:
+        if self.conf.use_nStep_lowerbounds or conf.use_HER:
             # Use the sampled return as a lower bound for Q predictions
             lowerbound = (next_xp["mc_return"] - q_pred).relu_()
             lb_mask = (lowerbound == 0)
