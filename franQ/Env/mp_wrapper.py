@@ -5,6 +5,7 @@ import typing as T
 
 class MultiProcessingWrapper():
     """Launch a new environment in another process and provide a wrapper API for it"""
+
     def __init__(self, env_maker, kwargs: AttrDict):
         self._queues = {
             "command": mp.Queue(maxsize=1),
@@ -51,6 +52,7 @@ class MultiProcessingWrapper():
     def unwrapped(self):
         raise ValueError("Cannot return unwrapped env as it is in another process. Use get_unwrapped_attr [TODO]")
 
+
 class ChildProcess():
     def __init__(self, env_maker, kwargs, queues: T.Dict[str, mp.Queue]):
         # makes the env in the new process and parses communications with the host process
@@ -77,13 +79,17 @@ class ChildProcess():
 
     def close(self):
         return self.env.close()
+
     def seed(self, seed=None):
         return self.env.seed(seed)
 
     def loop(self):
         while True:
-            command, args = self.queues["command"].get()
-            response = getattr(self, command)(args)
-            self.queues["response"].put(response)
-
-
+            try:
+                command, args = self.queues["command"].get()
+                response = getattr(self, command)(args)
+                self.queues["response"].put(response)
+            except Exception as e:
+                import traceback, logging
+                traceback.print_exc()
+                logging.error(e)
