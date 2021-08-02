@@ -123,6 +123,7 @@ class Runner:
         env = Env.make_mp(self.conf)
         logger = SummaryWriter(Path(self.conf.log_dir) / f"Runner_Env{idx}")
         total_step = 0
+        render = self.conf.render==idx if isinstance(self.conf.render,int) else self.conf.render
         for episode in itertools.count():
             if episode > self.conf.max_num_episodes: break
 
@@ -152,7 +153,7 @@ class Runner:
                     experience.update(obs)
                     experience["task_done"] = experience["episode_done"] and not experience["info"].get(
                         'TimeLimit.truncated', False)
-                    if self.conf.render:
+                    if render:
                         env.render()
 
                     score += experience["reward"]
