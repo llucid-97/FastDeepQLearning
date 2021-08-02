@@ -21,7 +21,7 @@ def main():
     agent_conf = Agent.AgentConf()
     agent_conf.num_instances = 3
     agent_conf.inference_device = "cpu"
-    agent_conf.use_nStep_lowerbounds = False
+    agent_conf.use_nStep_lowerbounds = True
     agent_conf.use_HER = True
     agent_conf.num_critics = 5
 
