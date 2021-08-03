@@ -33,19 +33,20 @@ class AgentConf(AttrDict):
         self.clip_grad_norm = 20
 
         # Algo and components
-        self.algorithm = "deep_q_learning"
+        self.use_squashed_rewards = True  # Apply pohlen transform [arXiv:1805.11593] to reduce variance and stabilize training
+        self.use_hard_updates = False  # False-> Use polyak averaging for target networks. True-> Periodic hard updates
+        self.use_target_actor = True
+        self.use_target_encoder = True
 
+        self.algorithm = "deep_q_learning"
         self.use_nStep_lowerbounds = True  # Lowerbound on Q to speed up convergence [https://arxiv.org/abs/1611.01606]
         self.nStep_return_steps = 1000
         self.use_max_entropy_q = True  # Intrinsic reward for random behavior while still following objective [https://arxiv.org/abs/1812.11103]
+        self.use_HER = False
 
-
-
-        self.use_squashed_rewards = True  # Apply pohlen transform [arXiv:1805.11593] to reduce variance and stabilize training
-        self.use_hard_updates = False  # False-> Use polyak averaging for target networks. True-> Periodic hard updates
 
         # TODO: Work In Progress:
-        self.use_HER = False
+        self.use_distributional_sac = True
         self.use_bootstrap_minibatch_nstep = False
         self.use_async_train = True  # TODO: Fix pipeline stall issue when this is disabled
         # ^^^^^^^^^^^^^^^^^^^^^^ API V4 Components
@@ -72,3 +73,4 @@ class AgentConf(AttrDict):
         self.num_critics = 2
         self.num_q_predictions = 10
         self.latent_state_dim = 256
+        self.top_quantiles_to_drop = 0.2

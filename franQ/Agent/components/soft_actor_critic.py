@@ -143,11 +143,13 @@ class SoftActorCritic(nn.Module):
         pi, log_pi, _ = self.actor(xp["state"])
         entropy = -log_pi
 
-        self.critic_frozen.load_state_dict(self.critic.state_dict())
+        hard_update(self.critic_frozen, self.critic)
+        # self.critic_frozen.load_state_dict(self.critic.state_dict())
         state_action = torch.cat((xp["state"].detach(), pi), dim=-1)
 
         qpi = self.critic_frozen(state_action)
-        qpi, _ = torch.min(qpi, dim=-1, keepdim=True)
+        qpi = torch.mean(qpi, dim=-1, keepdim=True)
+        # qpi, _ = torch.min(qpi, dim=-1, keepdim=True)
 
         policy_loss = -(self.curr_alpha * entropy) - qpi
         alpha_loss = -(self.log_alpha * (self.target_entropy - entropy).detach())
