@@ -13,16 +13,13 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
     NOTE: NOT COMPATIBLE WITH SQUASH_REWARDS OR NSTEP RETURNS WRAPPERS!
     """
 
-    def __init__(self, replay_buffer, n_step, discount, compute_reward: T.Callable,
-                 ignore_keys=('info',)):
-        if n_step > 1e4:
-            print("Note: NStepReturn stores ALL experiences in RAM while calculating return. \n"
-                  "Time and memory costs are O(n) in n_step, so careful how large you srt this thing")
+    def __init__(self, replay_buffer, compute_reward: T.Callable,ignore_keys=('info',)):
+
         ReplayMemoryWrapper.__init__(self, replay_buffer)
-        self.n_step, self.discount = n_step, discount
         self.compute_reward = compute_reward
         self._reset()
         self._ignored_keys = ignore_keys
+
 
     def _reset(self):
         self.buffers = defaultdict(deque)
@@ -40,16 +37,15 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
             self._reset()  # clear all buffers
 
     def _flush(self):
-        # Normal N-step Return calculation
-        reward = np.asarray(self.buffers["reward"])
-        mc_return = calculate_montecarlo_return(np.copy(reward), self.discount)
-        for i in reversed(range(len(mc_return))):
+        """
+        Forward the results stored in the buffer
+        :return:
+        """
+        for i in reversed(range(len(self.buffers["reward"]))):
             new_xp_tuple = {k: v[i] for k, v in self.buffers.items()
                             if (len(v) and (k not in self._ignored_keys))}
             # Note: we are skipping any entries that aren't put in the buffer (eg for "next_", it is not
             # necessary to fill even though it is in the memories dict
-            new_xp_tuple["mc_return"] = mc_return[i]
-            new_xp_tuple["reward"] = reward[i]
             self.replay_buffer.add(new_xp_tuple)
 
     def _hindsight_flush(self):
@@ -79,12 +75,11 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
             # later when pushing to the true replay
 
         # Calculate statistics and unfold episodes (concatenate)
-        mc_return = np.concatenate([calculate_montecarlo_return(r, self.discount) for r in reward], axis=-1)
         reward = np.concatenate([np.asarray(r) for r in reward], axis=-1)
         step = np.concatenate([np.asarray(s) - s[-1] for s in step], axis=-1)
 
         # Push to experience replay
-        for i in reversed(range(len(mc_return))):
+        for i in reversed(range(len(reward))):
             new_xp_tuple = {k: v[i] for k, v in self.buffers.items()
                             if (len(v) and (k not in self._ignored_keys))}
             # Note: we are skipping any entries that aren't put in the buffer (eg for "next_", it is not
@@ -92,14 +87,5 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
             new_xp_tuple["desired_goal"] = hindsight_goal
             new_xp_tuple["task_done"] = done[i]
             new_xp_tuple["episode_step"] = step[i]
-            new_xp_tuple["mc_return"] = mc_return[i]
             new_xp_tuple["reward"] = reward[i]
             self.replay_buffer.add(new_xp_tuple)
-
-        # makes montecarlo return a new experience tuple entry
-
-    def _pop(self):
-        # This is broken in HER: the discontinuity would mean we won't be optimizing towards the right virtual_goal
-        # TO work around this, we _flush, not really _pop,
-        self.buffers["episode_step"][0] = -1  # signal that a discontinuity exists so it can be ignored during training
-        self._flush()

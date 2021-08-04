@@ -46,11 +46,15 @@ class DeepQLearning(nn.Module):
 
         # Default encoder type
         self.encoder = encoder.Encoder(conf)
-        self.target_encoder = encoder.Encoder(conf)
+        self.target_encoder = encoder.Encoder(conf) if conf.use_target_encoder else self.encoder
         hard_update(self.target_encoder, self.encoder)
         self.fast_params += list(self.encoder.parameters())
 
-        self.actor_critic = soft_actor_critic.SoftActorCritic(conf, conf.latent_state_dim)
+        if conf.use_distributional_sac:
+            from .components.distributional_soft_actor_critic import DistributionalSoftActorCritic
+            self.actor_critic = DistributionalSoftActorCritic(conf, conf.latent_state_dim)
+        else:
+            self.actor_critic = soft_actor_critic.SoftActorCritic(conf, conf.latent_state_dim)
         self.fast_params += list(self.actor_critic.parameters())
 
         self.step = 0
@@ -139,8 +143,7 @@ class DeepQLearning(nn.Module):
     def update_targets(self):
         if self.conf.use_hard_updates:
             # hard updates should only be done once every N steps.
-            if self.step % self.conf.hard_update_interval:
-                return
+            if self.step % self.conf.hard_update_interval: return
             update = hard_update
         else:
             update = soft_update
