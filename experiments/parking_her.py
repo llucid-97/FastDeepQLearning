@@ -13,7 +13,7 @@ def main():
 
     # configure the environment
     env_conf = Env.EnvConf()
-    env_conf.suite = "cartpole_goal"
+    env_conf.suite = "eleurent_parking"
     env_conf.name = "zero-v2"
     env_conf.render = 0
     global_conf.update(env_conf)  # merge

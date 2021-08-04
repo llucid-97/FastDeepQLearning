@@ -1,11 +1,11 @@
 try:
-    import highway_env
+    import highway_env # lgtm [py/unused-import]
 except ImportError as e:
     print("\n\nRun: pip install --user git+https://github.com/eleurent/highway-env")
     raise e
 import gym
 from .conf import EnvConf
-from .wrappers import wrapper_base, common, common_image
+from .wrappers import wrapper_base, common
 import numpy as np
 import typing as T
 

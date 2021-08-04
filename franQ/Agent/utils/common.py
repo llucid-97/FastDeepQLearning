@@ -8,10 +8,12 @@ def squash_variance(x, epsilon=1e-2, pow=0.5):
 
 
 def soft_update(target, source, tau):
+    if target is source: return
     for target_param, param in zip(target.parameters(), source.parameters()):
         target_param.data.copy_(target_param.data * (1.0 - tau) + param.data * tau)
 
 
 def hard_update(target, source, *args, **kwargs):
+    if target is source: return
     for target_param, param in zip(target.parameters(), source.parameters()):
         target_param.data.copy_(param.data)
