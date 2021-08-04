@@ -1,6 +1,7 @@
 
 [![Maintainability](https://api.codeclimate.com/v1/badges/f809ece98a8a572aec9f/maintainability)](https://codeclimate.com/github/llucid-97/FastDeepQLearning/maintainability)
-
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/llucid-97/FastDeepQLearning.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/llucid-97/FastDeepQLearning/context:python)
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/llucid-97/FastDeepQLearning.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/llucid-97/FastDeepQLearning/alerts/)
 # Fast Deep Q Learning  
 
 <img align="right" width="200" height="183" src="https://i.redd.it/gfkg9wxfmww11.png">  
