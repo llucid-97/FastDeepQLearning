@@ -13,6 +13,7 @@ Combining improvements in deep Q Learning for fast and stable training with a mo
  - [He et al's variant of n-step returns](https://arxiv.org/abs/1611.01606) : using the sampled return as a lower-bound constraint (penalty actually) on Q predictions to accelerate convergence  
  - [Hindsight Experience Replay](https://arxiv.org/abs/1707.01495) : A data augmentation technique for Goal-directed Environments. It creates synthetic experiences where we pretend the goal state we achieved was the goal state we desired all along, and recalculate the rewards that we would have achieved accordingly. 
  - Discrete Policy for SAC based on [Wah Loon Keng's work](https://github.com/kengz/SLM-Lab)  : We use the Gumbel Softmax trick to create a differentiable rsample of a discrete distribution, and feed this to the critic.
+ - [Kuznetson et al's Truncated Mixture of Continuous Distributional Quantile Critics](https://arxiv.org/abs/2005.04269) : We use an ensemble of Q networks with multiple predictions to predict quantiles of an approximate distribution of Q trained using quantile regression, and also use it to handle over-estimation bias by droping the top-N target predictions. Based on [SamsungLabs Pytorch port](https://github.com/SamsungLabs/tqc_pytorch)
 
 ### WIP:
  - A State dependent exploration method based on [Raffin & Stulp's gSDE](https://arxiv.org/abs/2005.05719) to make SAC more robust to environments that act like low-pass filters  

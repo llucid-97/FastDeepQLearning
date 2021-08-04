@@ -7,7 +7,7 @@ def launch_experiment(config: T.Union[Env.EnvConf, Agent.AgentConf]):
 
     # Make a dummy environment so we can get observation and action space data
     kwargs = {}
-    config.log_dir = str(Path(config.log_dir) / common_utils.time_stamp_str() + f"{config.suite}_{config.name}")
+    config.log_dir = str(Path(config.log_dir) / (common_utils.time_stamp_str() + f"{config.suite}_{config.name}"))
     environment = Env.make(config)
     config.obs_space, config.action_space = environment.observation_space, environment.action_space
     if config.use_HER:

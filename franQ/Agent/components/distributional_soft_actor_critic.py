@@ -1,27 +1,32 @@
+"""
+This is based on SamsungLabs implementation of TQC: https://github.com/SamsungLabs/tqc_pytorch
+used under MIT License:
+MIT License
+
+Copyright (c) 2020 Samsung
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
 import torch
-from torch import nn, Tensor
-from torch.nn import functional as F
+from torch import Tensor
 import numpy as np
-from franQ.Agent.models import mlp, gumbel_mlp
-from franQ.Agent.models import gaussian_mlp
-from franQ.Agent.utils.common import hard_update, soft_update
-from franQ.Agent.conf import AgentConf
 import typing as T
-
-
-def make_actor(conf: AgentConf, input_dim):
-    if conf.discrete:
-        pi = gumbel_mlp.GumbelMLP(input_dim, conf.action_space.n, conf.pi_hidden_dims)
-    else:
-        pi = gaussian_mlp.GaussianMLP(input_dim, conf.action_space.shape[0], conf.pi_hidden_dims)
-    return pi
-
-
-def make_critic(conf: AgentConf, input_dim):
-    input_dim = input_dim + (conf.action_space.n if conf.discrete else conf.action_space.shape[-1])
-    return mlp.MLPEnsemble(input_dim, conf.num_q_predictions, conf.critic_hidden_dims,
-                           ensemble_size=conf.num_critics)
-
 
 from .soft_actor_critic import SoftActorCritic
 
@@ -42,10 +47,10 @@ class DistributionalSoftActorCritic(SoftActorCritic):
 
             next_state_action = torch.cat((next_xp["state"], next_action), dim=-1)
             next_z = self.critic_target(next_state_action)
-            sorted_z, _ = torch.sort(next_z,dim=-1)
+            sorted_z, _ = torch.sort(next_z, dim=-1)
             target_q = sorted_z[
-                            ...,
-                            :-int(conf.top_quantiles_to_drop * sorted_z.shape[-1])]
+                       ...,
+                       :-int(conf.top_quantiles_to_drop * sorted_z.shape[-1])]
             if conf.use_max_entropy_q:
                 target_q = target_q + self.curr_alpha * entropy
 
@@ -71,9 +76,10 @@ class DistributionalSoftActorCritic(SoftActorCritic):
         if self.conf.use_nStep_lowerbounds:
             # Use the sampled return as a lower bound for Q predictions
             lowerbound = (next_xp["mc_return"] - q_pred).relu_()
-            q_loss = q_loss + lowerbound.mean(-1,keepdim=True)
+            q_loss = q_loss + lowerbound.mean(-1, keepdim=True)
             with torch.no_grad():
-                summaries["mc_constraint_violations"] = (lowerbound>0).sum().float() / np.prod(lowerbound.shape).item()
+                summaries["mc_constraint_violations"] = (lowerbound > 0).sum().float() / np.prod(
+                    lowerbound.shape).item()
 
             if conf.use_bootstrap_minibatch_nstep:
                 raise NotImplementedError("Need to update this from SAC to use the quantile huber loss!")
@@ -92,6 +98,6 @@ def quantile_huber_loss_f(quantiles: torch.Tensor, samples, ):
     tau = torch.arange(n_quantiles, device=quantiles.device, dtype=quantiles.dtype) / n_quantiles + 1 / 2 / n_quantiles
     shape = [1 for _ in quantiles.shape] + [1]
     shape[-2] = n_quantiles
-    tau = torch.reshape(tau,shape)
-    loss = (torch.abs(tau - (pairwise_delta < 0).float()) * huber_loss).mean((-1,-2))
+    tau = torch.reshape(tau, shape)
+    loss = (torch.abs(tau - (pairwise_delta < 0).float()) * huber_loss).mean((-1, -2))
     return loss
