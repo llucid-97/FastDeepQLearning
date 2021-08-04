@@ -2,6 +2,7 @@
 A set of transformations that operate on batches
 """
 import numpy as np
+from torchvision.transforms import RandomChoice
 
 
 def ImgToUint8(img_batch: np.ndarray):
@@ -162,10 +163,6 @@ def random_brightness_channelwise(imgs: np.ndarray, min=0.5, max=1.5):
     imgs *= scaler
     imgs = np.clip(imgs, 0, 1)
     return (imgs * _max).astype(dtype)
-
-
-# importing these here so anyone who uses this script doesn't have to import torchvision separately
-from torchvision.transforms import RandomChoice, Compose
 
 
 def identity(imgs):

@@ -2,7 +2,8 @@ from franQ.Replay.replay_memory import ReplayMemory, OversampleError
 from torch import multiprocessing as mp
 from threading import Thread
 import time
-import psutil
+from franQ.common_utils import kill_proc_tree
+
 
 class AsyncReplayMemory:
     """Creates a replay memory in another process and sets up an API to access it"""
@@ -17,7 +18,7 @@ class AsyncReplayMemory:
         self._maxlen = maxlen
         self.proc = mp.Process(
             target=_child_process,
-            args=[maxlen, batch_size, temporal_len, self._q_sample, self._q_add, self._q_sample_temporal]
+            args=(maxlen, batch_size, temporal_len, self._q_sample, self._q_add, self._q_sample_temporal)
         )
         self.proc.start()
 
@@ -35,20 +36,7 @@ class AsyncReplayMemory:
         return self._len.value
 
     def __del__(self):
-        def kill_proc_tree(pid, including_parent=True):
-            try:
-                parent = psutil.Process(pid)
-                children = parent.children(recursive=True)
-                for child in children:
-                    child.kill()
-                gone, still_alive = psutil.wait_procs(children, timeout=5)
-                if including_parent:
-                    parent.kill()
-                    parent.wait(5)
-            except psutil.NoSuchProcess:
-                pass
         kill_proc_tree(self.proc.pid)
-
 
 
 def _child_process(maxlen, batch_size, temporal_len, sample_q: mp.Queue, add_q: mp.Queue, temporal_q: mp.Queue):
