@@ -6,7 +6,6 @@ License: MIT License  (https://github.com/DLR-RM/stable-baselines3/blob/master/L
 """
 
 from collections import OrderedDict
-from typing import Optional, Union, Callable
 import typing as T
 
 import numpy as np
@@ -63,7 +62,7 @@ class _CartPoleGoal(wrappers.Wrapper):
         version or not, by default, it uses the MultiBinary one
     """
 
-    def __init__(self, max_steps: Optional[int] = None, randomize_target=False,
+    def __init__(self, max_steps: T.Optional[int] = None, randomize_target=False,
                  match_position=False, match_angle=True):
         from gym.envs.classic_control.cartpole import CartPoleEnv
         env: CartPoleEnv = CartPoleEnv()
@@ -123,7 +122,7 @@ class _CartPoleGoal(wrappers.Wrapper):
 
         return self._get_obs()
 
-    def step(self, action: Union[np.ndarray, int]):
+    def step(self, action: T.Union[np.ndarray, int]):
         self.obs, _, fail, info = self.env.step(action)
 
         info["fail"] = fail
@@ -148,9 +147,6 @@ class _CartPoleGoal(wrappers.Wrapper):
 if __name__ == '__main__':
 
     def main():
-        import numpy as np
-        import gym
-
         def sigmoid(x):
             return 1.0 / (1.0 + np.exp(-x))
 

@@ -4,9 +4,10 @@ import time as _time
 class AttrDict(dict):
     """Allow accessing members via getitem for ease of use"""
     __setattr__ = dict.__setitem__
+
     def __getattr__(self, item):
         try:
-            return dict.__getitem__(self,item)
+            return dict.__getitem__(self, item)
         except KeyError as e:
             raise AttributeError(e)
 
@@ -21,6 +22,21 @@ class AttrDict(dict):
         return self
 
 
+def kill_proc_tree(pid, including_parent=True):
+    import psutil
+    try:
+        parent = psutil.Process(pid)
+        children = parent.children(recursive=True)
+        for child in children:
+            child.kill()
+        psutil.wait_procs(children, timeout=5)
+        if including_parent:
+            parent.kill()
+            parent.wait(5)
+    except psutil.NoSuchProcess:
+        pass
+
+
 def time_stamp_str():  # generate a timestamp used for logging
     import datetime
     return datetime.datetime.now().strftime("%Y-%m-%d___%H-%M-%S")
@@ -28,8 +44,9 @@ def time_stamp_str():  # generate a timestamp used for logging
 
 class TimerSummary:
     """Scope timer that prints to SummaryWriter"""
-    CLASS_ENABLE_SWITCH =True # a kill switch to conveniently enable/disable logging in 1 central place
-    def __init__(self, writer, name, group="Timers", step=None,force_enable=False):
+    CLASS_ENABLE_SWITCH = True  # a kill switch to conveniently enable/disable logging in 1 central place
+
+    def __init__(self, writer, name, group="Timers", step=None, force_enable=False):
         from torch.utils.tensorboard import SummaryWriter
         self.writer: SummaryWriter = writer
         self.group, self.name, self.step = group, name, step
@@ -43,6 +60,7 @@ class TimerSummary:
         self.interval = self.end - self.start
         if self.CLASS_ENABLE_SWITCH or self.force_enable:
             self.writer.add_scalars(self.group, {self.name: self.interval}, self.step)
+
 
 class LeakyIntegrator:
     def __init__(self, time_window=100, error_thresh=0.01):
