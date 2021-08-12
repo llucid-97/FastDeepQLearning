@@ -14,8 +14,8 @@ def main():
     # configure the environment
     env_conf = Env.EnvConf()
     env_conf.suite = "classic_goal"
-    env_conf.name = "CartPole-v1"
-    env_conf.render = 0
+    env_conf.name = "Acrobot-v1"
+    env_conf.render = False
     global_conf.update(env_conf)  # merge
 
     # configure the agent
