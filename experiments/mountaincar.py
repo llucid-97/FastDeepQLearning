@@ -13,8 +13,8 @@ def main():
 
     # configure the environment
     env_conf = Env.EnvConf()
-    env_conf.suite = "classic_goal"
-    env_conf.name = "CartPole-v1"
+    env_conf.suite = "classic"
+    env_conf.name = "MountainCar-v0"
     env_conf.render = 0
     global_conf.update(env_conf)  # merge
 
@@ -23,11 +23,10 @@ def main():
     agent_conf.num_instances = 3
     agent_conf.inference_device = "cpu"
     agent_conf.use_nStep_lowerbounds = True
-    agent_conf.use_HER = True
     agent_conf.num_critics = 5
 
     # NOTE: Fewer layers ===> Faster training.
-    agent_conf.enc1d_hidden_dims = [256]
+    agent_conf.enc1d_hidden_dims = []
     agent_conf.pi_hidden_dims = [256]
     agent_conf.critic_hidden_dims = [256, 256]
     agent_conf.init_log_alpha = 0

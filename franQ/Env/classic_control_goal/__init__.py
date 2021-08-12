@@ -1,0 +1,1 @@
+from .classic_goal import ClassicGoalEnv
