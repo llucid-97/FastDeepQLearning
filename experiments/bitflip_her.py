@@ -1,4 +1,4 @@
-from franQ.common_utils import AttrDict, time_stamp_str
+from franQ.common_utils import AttrDict
 from pathlib import Path
 from franQ import Env, Agent
 import multiprocessing as mp
