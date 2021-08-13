@@ -1,8 +1,6 @@
-from franQ.common_utils import AttrDict, time_stamp_str
-from pathlib import Path
+from franQ.common_utils import AttrDict
 from franQ import Env, Agent
 import multiprocessing as mp
-from franQ.Runner.runner import Runner
 from experiments.utils.launch_experiment import launch_experiment
 
 
@@ -13,8 +11,8 @@ def main():
 
     # configure the environment
     env_conf = Env.EnvConf()
-    env_conf.suite = "cartpole_goal"
-    env_conf.name = "zero-v2"
+    env_conf.suite = "classic_goal"
+    env_conf.name = "CartPole-v1"
     env_conf.render = 0
     global_conf.update(env_conf)  # merge
 

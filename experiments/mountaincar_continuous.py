@@ -6,14 +6,14 @@ from experiments.utils.launch_experiment import launch_experiment
 
 def main():
     """Setup config and call experiment launcher"""
-    #TODO: Allow reading conf from file and setting up argparse for poitning to config file
+    # TODO: Allow reading conf from file and setting up argparse for poitning to config file
     global_conf = AttrDict()  # joint global config
 
     # configure the environment
     env_conf = Env.EnvConf()
     env_conf.suite = "classic"
-    env_conf.name = "LunarLanderContinuous-v2"
-    env_conf.render = False
+    env_conf.name = "MountainCarContinuous-v0"
+    env_conf.render = 0
     global_conf.update(env_conf)  # merge
 
     # configure the agent
@@ -28,7 +28,6 @@ def main():
     agent_conf.pi_hidden_dims = [256]
     agent_conf.critic_hidden_dims = [256, 256]
     agent_conf.init_log_alpha = 0
-
 
     global_conf.update(agent_conf)
 
