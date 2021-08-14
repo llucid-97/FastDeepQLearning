@@ -23,6 +23,7 @@ def main():
     agent_conf.use_nStep_lowerbounds = True
     agent_conf.use_HER = True
     agent_conf.num_critics = 5
+    agent_conf.her_mode = "random"
 
     # NOTE: Fewer layers ===> Faster training.
     agent_conf.enc1d_hidden_dims = [256]
