@@ -21,7 +21,7 @@ class ClassicGoalEnv(wrappers.Wrapper):
         tasks = {
             "CartPole-v1": CartPoleGoalEnv,
             "Acrobot-v1": AcrobotGoalEnv,
-            "MountainCar-v0":MountainCarGoalEnv,
+            "MountainCar-v0": MountainCarGoalEnv,
         }
         env = tasks[conf.name]()
         env = wrappers.ObsDictRenameKey(env, old_name="observation", new_name="obs_1d")
@@ -158,10 +158,10 @@ class AcrobotGoalEnv(wrappers.Wrapper):
 
         :return: (OrderedDict<int or ndarray>)
         """
-        s = self.obs.copy()
+        s = self.env.state
         achieved_goal = np.zeros_like(self.desired_goal) - np.cos(s[0]) - np.cos(s[1] + s[0])
         return OrderedDict([
-            ("observation", s),
+            ("observation", self.obs.copy()),
             ("achieved_goal", achieved_goal),
             ("desired_goal", self.desired_goal.copy()),
         ])
@@ -172,7 +172,7 @@ class AcrobotGoalEnv(wrappers.Wrapper):
         return self._get_obs()
 
     def step(self, action: T.Union[np.ndarray, int]):
-        self.obs, _, _, info = self.env.step(action)
+        self.obs, _, terminal, info = self.env.step(action)
         obs = self._get_obs()
         reward, done = self.compute_reward(obs["achieved_goal"], obs["desired_goal"], info)
         self.current_step += 1
@@ -182,10 +182,16 @@ class AcrobotGoalEnv(wrappers.Wrapper):
             info['TimeLimit.truncated'] = True
         return obs, reward, done, info
 
-    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info) -> T.Tuple[float, bool]:
-        done = achieved_goal >= desired_goal
-        reward = 1.0 if done else 0.0
+    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info):
+        # Deceptive reward: it is positive only when the goal is achieved
+        reward = 0.0 if (achieved_goal >= desired_goal).all() else -1.0
+        done = reward == 0
         return reward, done
+
+    # def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info) -> T.Tuple[float, bool]:
+    #     done = achieved_goal >= desired_goal
+    #     reward = 1.0 if done else 0.0
+    #     return reward, done
 
 
 class MountainCarGoalEnv(wrappers.Wrapper):
@@ -249,13 +255,17 @@ class MountainCarGoalEnv(wrappers.Wrapper):
 if __name__ == '__main__':
 
     def main():
-        for Env_T in (MountainCarGoalEnv, CartPoleGoalEnv, AcrobotGoalEnv):
+        for Env_T in (
+                # MountainCarGoalEnv,
+                # CartPoleGoalEnv,
+                AcrobotGoalEnv,
+        ):
             env = Env_T()
-            for i_episode in range(2):
+            for i_episode in range(20000):
                 obs = env.reset()
                 for t in range(int(1e6)):
                     env.render()
-                    action = env.action_space.sample()
+                    action = env.action_space.sample() if t%5==0 else action
                     obs, reward, done, info = env.step(action)
                     assert isinstance(obs, dict)
                     assert "observation" in obs

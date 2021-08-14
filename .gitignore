@@ -1,1 +1,4 @@
 .idea
+**/logs
+scratchpad.py
+**/__pycache__

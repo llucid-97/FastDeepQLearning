@@ -23,7 +23,7 @@ class BitFlippingEnv(wrapper_base.Wrapper):
         env = _BitFlippingEnv(
             n_bits=int(str(conf.name).split(sep="-v")[1]),
             randomize_target=str(conf.name).split(sep="-v")[0] == "random",
-            max_steps=int(str(conf.name).split(sep="-v")[1])*2,
+            max_steps=int(str(conf.name).split(sep="-v")[1]) * 2,
         )
         env = common.ObsDictRenameKey(env)
         if not isinstance(env.action_space, gym.spaces.Discrete):
@@ -31,18 +31,7 @@ class BitFlippingEnv(wrapper_base.Wrapper):
         super().__init__(env)
 
     def get_reward_functor(self) -> Callable:
-        discrete_obs_space = self.discrete_obs_space
-
-        def compute_reward(achieved_goal: np.ndarray, desired_goal: np.ndarray, _info):
-            # Deceptive reward: it is positive only when the goal is achieved
-            if discrete_obs_space:
-                reward = 0.0 if achieved_goal == desired_goal else -1.0
-            else:
-                reward = 0.0 if (achieved_goal == desired_goal).all() else -1.0
-            done = reward == 0
-            return reward, done
-
-        return compute_reward
+        return self.env.compute_reward
 
 
 class _BitFlippingEnv(gym.GoalEnv):
@@ -145,15 +134,21 @@ class _BitFlippingEnv(gym.GoalEnv):
         done = reward == 0
         self.current_step += 1
         # Episode terminate when we reached the goal or the max number of steps
-        info = {"is_success": done}
+        info = {}
+        if self.current_step >= self._max_episode_steps:
+            done = True
+            info['TimeLimit.truncated'] = True
         done = done or self.current_step >= self.max_steps
         return obs, reward, done, info
 
-    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, _info) -> float:
+    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info):
         # Deceptive reward: it is positive only when the goal is achieved
         if self.discrete_obs_space:
-            return 0.0 if achieved_goal == desired_goal else -1.0
-        return 0.0 if (achieved_goal == desired_goal).all() else -1.0
+            reward = 0.0 if achieved_goal == desired_goal else -1.0
+        else:
+            reward = 0.0 if (achieved_goal == desired_goal).all() else -1.0
+        done = reward == 0
+        return reward, done
 
     def render(self, mode: str = "human") -> Optional[np.ndarray]:
         if mode == "rgb_array":
