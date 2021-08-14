@@ -181,16 +181,18 @@ class PendulumSparseGoalEnv(PendulumGoalEnv):
     """PundulumGoalEnv except with a sparse reward of +1 on reaching the goal state and -1 everywhere else"""
 
     def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info):
-        th, thdot = tuple(achieved_goal)
-        th2, thdot2 = tuple(achieved_goal)
+        # Deceptive reward: it is positive only when the goal is achieved
 
-        u = info["u"]
+        th, thdot = tuple(achieved_goal)  # th := theta
+        th2, thdot2 = tuple(desired_goal)  # th := theta
+        u = info.get("u", [0.0])
         u = np.clip(u, -self.env.max_torque, self.env.max_torque)[0]
         rewards = (
-                np.pi * float(np.allclose(th, th2, atol=1e-1)) - 1.0  # Encourage reaching target angle
-                - .1 * thdot ** 2  # Penalize velocity
-                - .001 * (u ** 2)  # Penalize torque
+                (float(np.allclose(th, th2, atol=1e-1)) - 1.0 ) # Encourage reaching target angle
+                # - .1 * abs(thdot)  # ** 2  # Penalize velocity
+                # - .001 * (u ** 2)  # Penalize torque
         )
+        # reward = 0.0 if (achieved_goal >= desired_goal).all() else -1.0
         return rewards, False
 
 

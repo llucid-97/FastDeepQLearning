@@ -43,6 +43,7 @@ class AgentConf(AttrDict):
         self.nStep_return_steps = 1000
         self.use_max_entropy_q = True  # Intrinsic reward for random behavior while still following objective [https://arxiv.org/abs/1812.11103]
         self.use_HER = False
+        self.her_mode = "final" # final | random
 
 
         # TODO: Work In Progress:
