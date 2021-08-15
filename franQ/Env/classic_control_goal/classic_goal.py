@@ -1,10 +1,3 @@
-"""
-Yoinked from DLR-RM Stable Baselines 3:
-https://github.com/DLR-RM/stable-baselines3/blob/23afedb254d06cae97064ca2aaba94b811d5c793/stable_baselines3/common/bit_flipping_env.py
-Author: Antonin Raffin
-License: MIT License  (https://github.com/DLR-RM/stable-baselines3/blob/master/LICENSE)
-"""
-
 from collections import OrderedDict
 import typing as T
 
@@ -308,7 +301,7 @@ class MountainCarGoalEnv(wrappers.Wrapper):
     def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info) -> T.Tuple[float, bool]:
         position, velocity = achieved_goal
         goal_position, _ = desired_goal
-        done = bool(position >= goal_position)# and velocity >= self.env.goal_velocity)
+        done = bool(position >= goal_position)  # and velocity >= self.env.goal_velocity)
         reward = float(done) - 1.0
         return reward, done
 
@@ -326,7 +319,7 @@ if __name__ == '__main__':
             env = Env_T()
 
             for i_episode in range(2):
-                obs = env.reset()
+                _ = env.reset()
                 for t in range(int(1e6)):
                     env.render()
                     action = env.action_space.sample()

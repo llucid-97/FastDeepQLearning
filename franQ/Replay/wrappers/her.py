@@ -2,9 +2,6 @@ import numpy as np
 import typing as T
 from collections import deque, defaultdict
 from .wrapper_base_class import ReplayMemoryWrapper
-from .nstep_return import calculate_montecarlo_return
-from enum import Enum
-
 
 
 class HindsightNStepReplay(ReplayMemoryWrapper):
@@ -13,14 +10,13 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
     - Episode terminates when goal is reached!
     """
 
-    def __init__(self, replay_buffer, compute_reward: T.Callable,ignore_keys=('info',),mode="final"):
+    def __init__(self, replay_buffer, compute_reward: T.Callable, ignore_keys=('info',), mode="final"):
 
         ReplayMemoryWrapper.__init__(self, replay_buffer)
         self.compute_reward = compute_reward
         self._reset()
         self._ignored_keys = ignore_keys
         self._mode = mode
-
 
     def _reset(self):
         self.buffers = defaultdict(deque)
@@ -73,13 +69,13 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
             r = goal_agnostic_reward + goal_reward
 
             # Splice them into synthetic episodes and calculate retroactive flags and stats (eg MC) based on this split
-            if d or (i==0): # New synthetic episode
+            if d or (i == 0):  # New synthetic episode
                 reward.append([])
                 step.append([])
             # put rewards into last synthetic episode
             reward[-1].append(r)
             step[-1].append(self.buffers["episode_step"][i])
-            done.append(d) # this doesn't need to be folded into episode lists because we'll just unfold
+            done.append(d)  # this doesn't need to be folded into episode lists because we'll just unfold
             # later when pushing to the true replay
 
         # Calculate statistics and unfold episodes (concatenate)
@@ -97,4 +93,3 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
             new_xp_tuple["episode_step"] = step[i]
             new_xp_tuple["reward"] = reward[i]
             self.replay_buffer.add(new_xp_tuple)
-
