@@ -217,7 +217,7 @@ class CartPoleGoalEnv(wrappers.Wrapper):
                                               "desired_goal": goal_space,
                                               })
 
-        self.desired_goal = np.array([0, 0],dtype=np.float32)
+        self.desired_goal = np.array([0, 0], dtype=np.float32)
         max_steps: T.Optional[int] = 500
         self._max_episode_steps = float("inf") if max_steps in (None, 0) else max_steps
         self.reset()
@@ -226,7 +226,7 @@ class CartPoleGoalEnv(wrappers.Wrapper):
         return OrderedDict(
             [
                 ("observation", self.obs.copy()),
-                ("achieved_goal", np.array((self.obs[0], self.obs[2]),dtype=np.float32)),
+                ("achieved_goal", np.array((self.obs[0], self.obs[2]), dtype=np.float32)),
                 ("desired_goal", self.desired_goal.copy()),
             ]
         )
@@ -253,28 +253,24 @@ class CartPoleGoalEnv(wrappers.Wrapper):
     def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info) -> T.Tuple[float, bool]:
         if info.get("fail", False):
             return -1.0, True
-        if np.allclose(achieved_goal[0], desired_goal[0],atol=1e-2):
+        if np.allclose(achieved_goal[0], desired_goal[0], atol=1e-2):
             # Do not reward angle here because hindsight will proc and falsely incentivise it
             return 1.0, False
-        return .1, False # Infinite Run. Incentivize survival
+        return .1, False  # Infinite Run. Incentivize survival
 
 
 class MountainCarGoalEnv(wrappers.Wrapper):
     def __init__(self, ):
         from gym.envs.classic_control.mountain_car import MountainCarEnv
-        import copy
         env: MountainCarEnv = MountainCarEnv()
         super().__init__(env)
-        # The achieved goal is determined by the current state
-        # here, it is a special where they are equal
-        # import math
-        # env.theta_threshold_radians = 90 * 2 * math.pi / 360
         max_steps: T.Optional[int] = 500
         self.observation_space = spaces.Dict({
             "observation": env.observation_space,
             "achieved_goal": env.observation_space,
             "desired_goal": env.observation_space,
         })
+        self.env: MountainCarEnv
 
         self.desired_goal = self.observation_space["desired_goal"].sample()
         self.desired_goal[0] = env.goal_position
@@ -285,10 +281,8 @@ class MountainCarGoalEnv(wrappers.Wrapper):
     def _get_obs(self) -> OrderedDict:
         """
         Helper to create the observation.
-
         :return: (OrderedDict<int or ndarray>)
         """
-
         return OrderedDict([
             ("observation", self.obs.copy()),
             ("achieved_goal", self.obs.copy()),
@@ -312,8 +306,10 @@ class MountainCarGoalEnv(wrappers.Wrapper):
         return obs, reward, done, info
 
     def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info) -> T.Tuple[float, bool]:
-        done = np.all(achieved_goal >= desired_goal)
-        reward = 50.0 if done else -1.0
+        position, velocity = achieved_goal
+        goal_position, _ = desired_goal
+        done = bool(position >= goal_position)# and velocity >= self.env.goal_velocity)
+        reward = float(done) - 1.0
         return reward, done
 
 
@@ -321,14 +317,15 @@ if __name__ == '__main__':
 
     def main():
         for Env_T in (
-                # MountainCarGoalEnv,
-                # CartPoleGoalEnv,
-                # AcrobotGoalEnv,
+                MountainCarGoalEnv,
+                CartPoleGoalEnv,
+                AcrobotGoalEnv,
                 PendulumGoalEnv,
+                PendulumSparseGoalEnv,
         ):
             env = Env_T()
 
-            for i_episode in range(20000):
+            for i_episode in range(2):
                 obs = env.reset()
                 for t in range(int(1e6)):
                     env.render()
