@@ -2,24 +2,21 @@ import numpy as np
 import typing as T
 from collections import deque, defaultdict
 from .wrapper_base_class import ReplayMemoryWrapper
-from .nstep_return import calculate_montecarlo_return
 
 
 class HindsightNStepReplay(ReplayMemoryWrapper):
     """Hindsight Experience Replay with MC Lowerbounds
     This hinges on the assumptions:
     - Episode terminates when goal is reached!
-
-    NOTE: NOT COMPATIBLE WITH SQUASH_REWARDS OR NSTEP RETURNS WRAPPERS!
     """
 
-    def __init__(self, replay_buffer, compute_reward: T.Callable,ignore_keys=('info',)):
+    def __init__(self, replay_buffer, compute_reward: T.Callable, ignore_keys=('info',), mode="final"):
 
         ReplayMemoryWrapper.__init__(self, replay_buffer)
         self.compute_reward = compute_reward
         self._reset()
         self._ignored_keys = ignore_keys
-
+        self._mode = mode
 
     def _reset(self):
         self.buffers = defaultdict(deque)
@@ -48,9 +45,16 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
             # necessary to fill even though it is in the memories dict
             self.replay_buffer.add(new_xp_tuple)
 
+    def _select_virtual_goal(self):
+        if self._mode == "final":
+            return self.buffers["achieved_goal"][0]
+        if self._mode == "random":
+            import random
+            return random.choice(self.buffers["achieved_goal"])
+
     def _hindsight_flush(self):
         # Calculate what our rewards WOULD HAVE BEEN if we were working towards the state we ended up at
-        hindsight_goal = self.buffers["achieved_goal"][0]
+        hindsight_goal = self._select_virtual_goal()
         reward = []
         done = []
         step = []
@@ -65,13 +69,13 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
             r = goal_agnostic_reward + goal_reward
 
             # Splice them into synthetic episodes and calculate retroactive flags and stats (eg MC) based on this split
-            if d or (i==0): # New synthetic episode
+            if d or (i == 0):  # New synthetic episode
                 reward.append([])
                 step.append([])
             # put rewards into last synthetic episode
             reward[-1].append(r)
             step[-1].append(self.buffers["episode_step"][i])
-            done.append(d) # this doesn't need to be folded into episode lists because we'll just unfold
+            done.append(d)  # this doesn't need to be folded into episode lists because we'll just unfold
             # later when pushing to the true replay
 
         # Calculate statistics and unfold episodes (concatenate)
