@@ -1,8 +1,6 @@
 from franQ.common_utils import AttrDict
-from pathlib import Path
 from franQ import Env, Agent
 import multiprocessing as mp
-from franQ.Runner.runner import Runner
 from experiments.utils.launch_experiment import launch_experiment
 
 
