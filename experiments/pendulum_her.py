@@ -11,8 +11,8 @@ def main():
 
     # configure the environment
     env_conf = Env.EnvConf()
-    env_conf.suite = "bit_flip"
-    env_conf.name = "random-v4"
+    env_conf.suite = "classic_goal"
+    env_conf.name = "Pendulum-v0"
     env_conf.render = False
     global_conf.update(env_conf)  # merge
 
