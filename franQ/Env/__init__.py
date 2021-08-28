@@ -6,8 +6,8 @@ def make_mp(env_conf):
     from .mp_wrapper import MultiProcessingWrapper
     return MultiProcessingWrapper(make,env_conf)
 
-def make(env_conf: EnvConf):
-    suite = env_conf.suite.lower()
+def make(conf: EnvConf):
+    suite = conf.suite.lower()
     if suite == "classic":
         from .classic import Classic  as EnvClass
     elif suite == "classic_pixel":
@@ -20,4 +20,12 @@ def make(env_conf: EnvConf):
         from franQ.Env.classic_control_goal import ClassicGoalEnv as EnvClass
     else:
         raise NotImplementedError(f"Suite {suite} not found!")
-    return EnvClass(env_conf)
+
+
+    env = EnvClass(conf)
+    if conf.monitor and conf.artefact_root:
+        from gym.wrappers import Monitor
+        from pathlib import Path
+        import uuid
+        env = Monitor(env, str(Path(conf.artefact_root) / f"monitor_{conf.instance_tag}_{uuid.uuid4()}"))
+    return env

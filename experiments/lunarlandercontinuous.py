@@ -13,7 +13,8 @@ def main():
     env_conf = Env.EnvConf()
     env_conf.suite = "classic"
     env_conf.name = "LunarLanderContinuous-v2"
-    env_conf.render = False
+    env_conf.render = 0
+    env_conf.monitor = 0
     global_conf.update(env_conf)  # merge
 
     # configure the agent
