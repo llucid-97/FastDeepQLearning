@@ -8,13 +8,17 @@ def launch_experiment(config: T.Union[Env.EnvConf, Agent.AgentConf]):
     # Make a dummy environment so we can get observation and action space data
     kwargs = {}
     config.log_dir = str(Path(config.log_dir) / (common_utils.time_stamp_str() + f"{config.suite}_{config.name}"))
-    environment = Env.make(config)
-    config.obs_space, config.action_space = environment.observation_space, environment.action_space
+    config.artefact_root = str(Path(config.log_dir) / "artefacts")
+    import copy
+    c = copy.copy(config)
+    c.monitor = False
+    eg_env = Env.make(config)
+    config.obs_space, config.action_space = eg_env.observation_space, eg_env.action_space
     if config.use_HER:
-        kwargs["compute_reward"] = environment.get_reward_functor()
+        kwargs["compute_reward"] = eg_env.get_reward_functor()
     import gym
     config.discrete = isinstance(config.action_space,gym.spaces.Discrete)
-    del (environment)
+    del (eg_env)
 
     # Launch the experiment
     runner = Runner.Runner(config,**kwargs)

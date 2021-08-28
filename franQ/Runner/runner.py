@@ -111,7 +111,7 @@ class Runner:
         Transformations must be defined as replay wrappers in init"""
         logger = SummaryWriter(Path(self.conf.log_dir) / f"Runner_replay_{idx}")
         for step in itertools.count():
-            experience_dict :dict = self._queue_to_replay_handler[idx].get()
+            experience_dict: dict = self._queue_to_replay_handler[idx].get()
             if not self.conf.use_HER:
                 del experience_dict["info"]
 
@@ -120,12 +120,15 @@ class Runner:
 
     def _env_handler(self, idx):
         """Pipeline Stage: Asynchronously handles stepping through env to get a response"""
-        env = Env.make_mp(self.conf)
-        logger = SummaryWriter(Path(self.conf.log_dir) / f"Runner_Env{idx}")
+        conf = copy.copy(self.conf)
+        conf.instance_tag = idx
+        conf.monitor = conf.monitor if isinstance(conf.monitor, bool) else conf.monitor == idx
+        env = Env.make_mp(conf)
+        logger = SummaryWriter(Path(self.conf.log_dir) / f"Runner_Env_{idx}")
         total_step = 0
-        render = self.conf.render==idx if isinstance(self.conf.render,int) else self.conf.render
+        render = conf.render if isinstance(self.conf.render, bool) else self.conf.render == idx
         for episode in itertools.count():
-            if episode > self.conf.max_num_episodes: break
+            if episode >= self.conf.max_num_episodes: break
 
             # Reset & init all data from the environment
             score = 0
