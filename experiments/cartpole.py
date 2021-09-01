@@ -14,6 +14,7 @@ def main():
     env_conf.suite = "classic"
     env_conf.name = "CartPole-v1"
     env_conf.render = 0
+    env_conf.monitor = True
     global_conf.update(env_conf)  # merge
 
     # configure the agent

@@ -36,7 +36,7 @@ class AgentConf(AttrDict):
         self.use_squashed_rewards = True  # Apply pohlen transform [arXiv:1805.11593] to reduce variance and stabilize training
         self.use_hard_updates = False  # False-> Use polyak averaging for target networks. True-> Periodic hard updates
         self.use_target_actor = True
-        self.use_target_encoder = True
+        self.use_target_encoder = False
 
         self.algorithm = "deep_q_learning"
         self.use_nStep_lowerbounds = True  # Lowerbound on Q to speed up convergence [https://arxiv.org/abs/1611.01606]

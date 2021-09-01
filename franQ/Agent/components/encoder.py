@@ -56,7 +56,7 @@ class Encoder(nn.Module):
         pass
 
     def forward_eval(self, x):
-        return self.forward(x)
+        return self(x)
 
     def forward_train(self, x, **kwargs):
-        return self.forward(x)
+        return self(x)

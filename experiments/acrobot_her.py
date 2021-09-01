@@ -14,6 +14,7 @@ def main():
     env_conf.suite = "classic_goal"
     env_conf.name = "Acrobot-v1"
     env_conf.render = False
+    env_conf.monitor = True
     global_conf.update(env_conf)  # merge
 
     # configure the agent

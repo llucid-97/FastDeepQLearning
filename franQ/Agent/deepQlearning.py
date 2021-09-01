@@ -18,7 +18,7 @@ from queue import Queue
 from .utils.common import soft_update, hard_update
 from .components import soft_actor_critic, encoder
 
-ExperienceDict_T = T.Dict[str, Tensor]
+TensorDict = T.Dict[str, Tensor]
 
 
 class DeepQLearning(nn.Module):
@@ -148,51 +148,53 @@ class DeepQLearning(nn.Module):
         else:
             update = soft_update
         self.actor_critic.update_target()
-        update(self.target_encoder, self.encoder, self.conf.tau)
+        if self.conf.use_target_encoder:
+            update(self.target_encoder, self.encoder, self.conf.tau)
 
-    def get_losses(self, experience: T.Dict[str, Tensor]):
-        # Step 0: grab metadata
-        conf = self.conf
+    def _get_encodings_training(self, experience: TensorDict):
+        enc_kwargs = {
+            # "is_contiguous": is_contiguous,
+            "sequence_len": self.conf.temporal_len,
+            "batch_size": self.conf.batch_size
+        }
+        if self.conf.use_target_encoder:
+            # Split then run both
+            curr_xp, next_xp = self._temporal_difference_shift(experience)
+            curr_xp["state"] = self.encoder.forward_train(curr_xp, **enc_kwargs)
+            with torch.no_grad():
+                next_xp["state"] = self.target_encoder.forward_train(next_xp, **enc_kwargs)
+        else:
+            # Run on all then split
+            experience["state"] = self.encoder.forward_train(experience, **enc_kwargs)
+            curr_xp, next_xp = self._temporal_difference_shift(experience)
+        return curr_xp, next_xp
+
+    def get_losses(self, experience: TensorDict):
         experience["mask"] = torch.logical_not(experience["task_done"])
         is_contiguous = experience["episode_step"][1:] == (experience["episode_step"][:-1] + 1)
-
-        # Step 1: Get temporal difference pairs
-        curr_xp, next_xp = self._temporal_difference_shift(experience)
-
-        # Run the encoder to get the latent state
-        enc_kwargs = {
-            "is_contiguous": is_contiguous,
-            "sequence_len": conf.temporal_len,
-            "batch_size": conf.batch_size
-        }
-        curr_xp["state"] = self.encoder.forward_train(curr_xp, **enc_kwargs)
         with torch.no_grad():
-            next_xp["state"] = self.target_encoder.forward_train(next_xp, **enc_kwargs)
+            # Convert discrete actions to 1-hot encoding
+            if self.conf.discrete:
+                experience["action_onehot"] = torch.eye(
+                    self.conf.action_space.n,
+                    device=experience["action"].device, dtype=experience["action"].dtype
+                )[experience["action"].view(experience["action"].shape[:-1]).long()]
 
-            # Step 4: Convert discrete actions to 1-hot encoding
-            if conf.discrete:
-                curr_xp["action_onehot"] = torch.eye(
-                    conf.action_space.n,
-                    device=curr_xp["action"].device, dtype=curr_xp["action"].dtype
-                )[curr_xp["action"].view(curr_xp["action"].shape[:-1]).long()]
+        curr_xp, next_xp = self._get_encodings_training(experience)
 
-        # Step 4: Get the Critic Losses with deep Q Learning
-        # Note: NEXT STATE's reward & done used. Very important that this is consistent!!
         q_loss, bootstrapped_lowerbound_loss, q_summaries = self.actor_critic.q_loss(curr_xp, next_xp)
-
-        # Get Policy Loss
         pi_loss, alpha_loss, pi_summaries = self.actor_critic.actor_loss(curr_xp)
 
-        # Sum it all up
-        assert q_loss.shape == pi_loss.shape == is_contiguous.shape == alpha_loss.shape, \
-            f"loss shape mismatch: q={q_loss.shape} pi={pi_loss.shape} c={is_contiguous.shape} a={alpha_loss.shape}"
-        task_loss = ((q_loss + pi_loss + alpha_loss) * is_contiguous).mean()  # Once its recurrent, they all use TD
-        if conf.use_bootstrap_minibatch_nstep:
+
+        loss = ((q_loss + pi_loss + alpha_loss) * is_contiguous).mean()  # Once its recurrent, they all use TD
+        if self.conf.use_bootstrap_minibatch_nstep:
             bootstrapped_lowerbound_loss = (bootstrapped_lowerbound_loss * is_contiguous.prod(0)).mean()
-            task_loss = task_loss + bootstrapped_lowerbound_loss
+            loss = loss + bootstrapped_lowerbound_loss
 
         # Step 11: Write Scalars
         if (self.step % self.conf.log_interval) == 0:
+            assert q_loss.shape == pi_loss.shape == is_contiguous.shape == alpha_loss.shape, \
+                f"loss shape mismatch: q={q_loss.shape} pi={pi_loss.shape} c={is_contiguous.shape} a={alpha_loss.shape}"
             self.summary_writer.add_scalars("Trainer/RL_Loss", {"Critic": q_loss.mean().item(),
                                                                 "Actor": pi_loss.mean().item(),
                                                                 "Alpha": alpha_loss.mean().item(), },
@@ -203,10 +205,10 @@ class DeepQLearning(nn.Module):
 
         self.step += 1
 
-        return task_loss / conf.temporal_len
+        return loss / self.conf.temporal_len
 
     @staticmethod
-    def _temporal_difference_shift(experience_dict: ExperienceDict_T) -> T.Tuple[ExperienceDict_T, ...]:
+    def _temporal_difference_shift(experience_dict: TensorDict) -> T.Tuple[TensorDict, ...]:
         # make all experiences in the TD learning form
         curr_state, next_state = {}, {}
         for key, val in experience_dict.items():
