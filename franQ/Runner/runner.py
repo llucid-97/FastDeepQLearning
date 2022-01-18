@@ -30,7 +30,9 @@ class Runner:
         shards, self.replay_shards = Replay.make(conf, **kwargs)
 
         # make agent: It is responsible for its own training asynchronously, and provides an API for inference
-        self.agent = Agent.make(conf, shards)
+        from franQ.Agent.deepQlearning import DeepQLearning
+        self.agent: DeepQLearning = Agent.make(conf)
+        self.agent.enable_training(shards)
         self.agent.to(conf.inference_device)
 
     def launch(self):

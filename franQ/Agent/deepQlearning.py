@@ -1,20 +1,18 @@
-from torch import nn, multiprocessing as mp, Tensor
-
-from franQ.Replay.wrappers import TorchDataLoader
-
-import itertools
-
-import typing as T, logging
-from franQ.Agent.conf import AgentConf, AttrDict
+# Std lib
+import os, pickle, itertools, typing as T, logging
 from collections import OrderedDict
-
-import torch
-from torch.utils.tensorboard import SummaryWriter
-
 from pathlib import Path
 from threading import Thread
 from queue import Queue
 
+# 3rd party
+import torch
+from torch import nn, multiprocessing as mp, Tensor
+from franQ.Replay.wrappers import TorchDataLoader
+from franQ.Agent.conf import AgentConf, AttrDict
+from torch.utils.tensorboard import SummaryWriter
+
+# locals
 from .utils.common import soft_update, hard_update
 from .components import soft_actor_critic, encoder
 
@@ -22,25 +20,23 @@ TensorDict = T.Dict[str, Tensor]
 
 
 class DeepQLearning(nn.Module):
-    def __init__(self, conf: AgentConf, replays, **kwargs):
+    def __init__(self, conf: AgentConf, **kwargs):
         nn.Module.__init__(self)
         conf: AgentConf = conf if isinstance(conf, AttrDict) else AttrDict().from_dict(conf)
         self.conf = conf
         self.param_queue = kwargs.get("param_queue", mp.Queue(maxsize=1))
 
-        if conf.use_async_train:
-            if not kwargs.get("train_process", False):
-                # make another process for doing parameter updates asynchronously
-                mp.Process(target=DeepQLearning, args=[conf.to_dict(), replays],
-                           kwargs={"param_queue": self.param_queue,
-                                   "train_process": True}).start()
-                Thread(target=self._pull_params).start()  # grab updated params from the other process
-        else:
-            # Sync mode means rollout and trainer are in same process, so must be on same device
-            conf.training_device = conf.inference_device
-
         # Logging
-        self.summary_writer = SummaryWriter(Path(conf.log_dir) / ("Trainer" if "train_process" in kwargs else "Actor"))
+        self.summary_writer = SummaryWriter(str(Path(conf.log_dir) / f"Agent_{os.getpid()}"))
+
+        self._define_model()
+
+        if kwargs.get("train_process", False):
+            self._initialize_trainer_members(kwargs["replays"])
+            self._infinite_loop_for_async_training_process()
+
+    def _define_model(self):
+        conf = self.conf
         self.fast_params = []
         # Models
 
@@ -57,27 +53,45 @@ class DeepQLearning(nn.Module):
             self.actor_critic = soft_actor_critic.SoftActorCritic(conf, conf.latent_state_dim)
         self.fast_params += list(self.actor_critic.parameters())
 
-        self.step = 0
-        train_proc = kwargs.get("train_process", False)
-        if train_proc or (not conf.use_async_train):
-            if not train_proc:
-                conf.inference_device = conf.training_device
-            self.replays = [TorchDataLoader(r, conf.training_device, conf.dtype) for r in replays]
-            self.to(conf.training_device)
-            self.optimizers = [torch.optim.Adam(
-                self.parameters(),
-                lr=self.conf.learning_rate
-            )]
+    def enable_training(self, replays):
+        conf = self.conf
+        if conf.use_async_train:
+            self._launch_async_training(replays)
+        else:
+            # Sync mode means rollout and trainer are in same process, so must be on same device
+            conf.training_device = conf.inference_device
+            self._initialize_trainer_members(replays)
 
-            if kwargs.get("train_process", False):
-                dump_q = Queue(maxsize=1)
-                Thread(target=self._push_params, args=[dump_q]).start()
+    def _launch_async_training(self, replays):
+        # make another process for doing parameter updates asynchronously
+        conf = self.conf
+        mp.Process(target=DeepQLearning, args=(conf,),
+                   kwargs={"param_queue": self.param_queue,
+                           "train_process": True,
+                           "replays": replays}).start()
+        # grab updated params from the other process
+        Thread(target=self._pull_params).start()
 
-                for step_train in itertools.count():
-                    self.train_step()
-                    if (step_train % self.conf.param_update_interval) == 0:
-                        # Signal the _push_params thread that we've updated enough times to warrant a push
-                        if dump_q.empty(): dump_q.put_nowait(None)
+    def _infinite_loop_for_async_training_process(self):
+        # Sets up a thread to push newest params to inference process
+        dump_q = Queue(maxsize=1)
+        Thread(target=self._push_params, args=[dump_q]).start()
+
+        # actual infinite loop[
+        for step_train in itertools.count():
+            self.train_step()
+            if (step_train % self.conf.param_update_interval) == 0:
+                # Signal the _push_params thread that we've updated enough times to warrant a push
+                if dump_q.empty(): dump_q.put_nowait(None)
+
+    def _initialize_trainer_members(self, replays):
+        conf = self.conf
+        self.replays = [TorchDataLoader(r, conf.training_device, conf.dtype) for r in replays]
+        self.to(conf.training_device)
+        self.optimizers = [torch.optim.Adam(
+            self.parameters(),
+            lr=self.conf.learning_rate
+        )]
 
     def train_step(self):
         for replay in self.replays:
@@ -143,7 +157,7 @@ class DeepQLearning(nn.Module):
     def update_targets(self):
         if self.conf.use_hard_updates:
             # hard updates should only be done once every N steps.
-            if self.step % self.conf.hard_update_interval: return
+            if self.conf.global_step.value % self.conf.hard_update_interval: return
             update = hard_update
         else:
             update = soft_update
@@ -185,25 +199,23 @@ class DeepQLearning(nn.Module):
         q_loss, bootstrapped_lowerbound_loss, q_summaries = self.actor_critic.q_loss(curr_xp, next_xp)
         pi_loss, alpha_loss, pi_summaries = self.actor_critic.actor_loss(curr_xp)
 
-
         loss = ((q_loss + pi_loss + alpha_loss) * is_contiguous).mean()  # Once its recurrent, they all use TD
         if self.conf.use_bootstrap_minibatch_nstep:
             bootstrapped_lowerbound_loss = (bootstrapped_lowerbound_loss * is_contiguous.prod(0)).mean()
             loss = loss + bootstrapped_lowerbound_loss
 
         # Step 11: Write Scalars
-        if (self.step % self.conf.log_interval) == 0:
+        step = self.conf.global_step.value
+        if (step % self.conf.log_interval) == 0:
             assert q_loss.shape == pi_loss.shape == is_contiguous.shape == alpha_loss.shape, \
                 f"loss shape mismatch: q={q_loss.shape} pi={pi_loss.shape} c={is_contiguous.shape} a={alpha_loss.shape}"
             self.summary_writer.add_scalars("Trainer/RL_Loss", {"Critic": q_loss.mean().item(),
                                                                 "Actor": pi_loss.mean().item(),
                                                                 "Alpha": alpha_loss.mean().item(), },
-                                            self.step)
+                                            step)
 
-            [self.summary_writer.add_scalar(f"Trainer/Critic_{k}", v, self.step) for k, v in q_summaries.items()]
-            [self.summary_writer.add_scalar(f"Trainer/Actor_{k}", v, self.step) for k, v in pi_summaries.items()]
-
-        self.step += 1
+            [self.summary_writer.add_scalar(f"Trainer/Critic_{k}", v, step) for k, v in q_summaries.items()]
+            [self.summary_writer.add_scalar(f"Trainer/Actor_{k}", v, step) for k, v in pi_summaries.items()]
 
         return loss / self.conf.temporal_len
 
@@ -215,3 +227,20 @@ class DeepQLearning(nn.Module):
             curr_state[key] = val[:-1]
             next_state[key] = val[1:]
         return curr_state, next_state
+
+    def save(self, logdir):
+        logdir = Path(logdir)
+        logdir.mkdir(parents=True, exist_ok=True)
+
+        torch.save(self.conf, logdir / "conf.tch")
+        torch.save(self.state_dict(), logdir / "state_dict.tch")
+
+    @staticmethod
+    def load_from_file(logdir):
+        logdir = Path(logdir)
+
+        conf = torch.load(logdir / "conf.tch")
+        state_dict = torch.load(logdir / "state_dict.tch")
+        agent = DeepQLearning(conf)
+        agent.load_state_dict(state_dict)
+        return agent
