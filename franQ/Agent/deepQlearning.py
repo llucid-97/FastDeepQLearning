@@ -232,7 +232,10 @@ class DeepQLearning(nn.Module):
         logdir = Path(logdir)
         logdir.mkdir(parents=True, exist_ok=True)
 
-        torch.save(self.conf, logdir / "conf.tch")
+        import copy
+        conf = copy.copy(self.conf)
+        conf.global_step = conf.global_step.value
+        torch.save(conf, logdir / "conf.tch")
         torch.save(self.state_dict(), logdir / "state_dict.tch")
 
     @staticmethod
@@ -240,6 +243,8 @@ class DeepQLearning(nn.Module):
         logdir = Path(logdir)
 
         conf = torch.load(logdir / "conf.tch")
+
+        conf.global_step = mp.Value("i", conf.global_step)
         state_dict = torch.load(logdir / "state_dict.tch")
         agent = DeepQLearning(conf)
         agent.load_state_dict(state_dict)

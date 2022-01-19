@@ -46,7 +46,7 @@ def time_stamp_str():  # generate a timestamp used for logging
     return datetime.datetime.now().strftime("%Y-%m-%d___%H-%M-%S")
 
 
-class TimerSummary:
+class TimerTB:
     """Scope timer that prints to SummaryWriter"""
     CLASS_ENABLE_SWITCH = True  # a kill switch to conveniently enable/disable logging in 1 central place
 

@@ -1,5 +1,10 @@
+import random, shutil
+import uuid
 from threading import Thread
 from queue import Queue
+
+import numpy as np
+import pandas as pd
 from franQ import Env, Replay, Agent, common_utils
 import torch
 from torch import Tensor
@@ -7,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 import typing as T
 from pathlib import Path
 import itertools
-from franQ.common_utils import TimerSummary
+from franQ.common_utils import TimerTB
 import copy
 
 
@@ -16,7 +21,7 @@ class Runner:
 
     def __init__(self, conf: T.Union[Agent.AgentConf, Env.EnvConf], **kwargs):
         self.conf = conf
-        common_utils.TimerSummary.CLASS_ENABLE_SWITCH = conf.enable_timers
+        TimerTB.CLASS_ENABLE_SWITCH = conf.enable_timers
         self.discrete = conf.discrete
 
         # Queues for communicating between all worker threads
@@ -25,6 +30,7 @@ class Runner:
         self._queue_agent_handler_to_env_dataloader = Queue(maxsize=1)
         self._queue_to_environment_handler = [Queue(maxsize=1) for _ in range(conf.num_instances)]
         self._queue_to_replay_handler = [Queue(maxsize=1) for _ in range(conf.num_instances)]
+        self._queue_to_ranker = Queue(maxsize=1)
 
         # shards are separate replay memories for each env-actor pair so we don't violate FIFO assumptions for storage
         shards, self.replay_shards = Replay.make(conf, **kwargs)
@@ -37,11 +43,18 @@ class Runner:
 
     def launch(self):
         """launch thread workers for each stage of the pipeline"""
-        threads = [Thread(target=self._env_handler, args=[i]) for i in range(self.conf.num_instances)]
+        from .env_handler import env_handler
+        threads = [Thread(
+            target=env_handler,
+            args=(self.conf, i, self._queue_env_handler_to_agent_dataloader, self._queue_to_environment_handler[i],
+                  (self._queue_to_ranker if i == 0 else None)
+                  )
+        ) for i in range(self.conf.num_instances)]
         threads += [Thread(target=self._replay_handler, args=[i]) for i in range(self.conf.num_instances)]
         threads += [Thread(target=self._env_dataloader),
                     Thread(target=self._agent_dataloader),
                     Thread(target=self._agent_handler)]
+        threads += [Thread(target=self._ranker)]
 
         [t.start() for t in threads]
         [t.join() for t in threads]
@@ -54,7 +67,7 @@ class Runner:
             # wait for a request to be fed recieved
             requests: T.List[dict] = [self._queue_env_handler_to_agent_dataloader.get()]
 
-            with common_utils.TimerSummary(logger, "_agent_dataloader", group="timers/runner", step=step):
+            with TimerTB(logger, "_agent_dataloader", group="timers/runner", step=step):
                 # get the rest that are already present (if any)
                 while not self._queue_env_handler_to_agent_dataloader.empty():
                     requests.append(self._queue_env_handler_to_agent_dataloader.get())
@@ -78,7 +91,7 @@ class Runner:
         for step in itertools.count():
             batch, xp_dict_list = self._queue_agent_dataloader_to_agent_handler.get()
 
-            with TimerSummary(logger, "_agent_handler", group="timers/runner", step=step):
+            with TimerTB(logger, "_agent_handler", group="timers/runner", step=step):
                 actions = self.agent.act(batch)
                 self._queue_agent_handler_to_env_dataloader.put((actions, xp_dict_list))
 
@@ -87,7 +100,7 @@ class Runner:
         logger = SummaryWriter(Path(self.conf.log_dir) / "Runner_DataUnloader")
         for step in itertools.count():
             actions, xp_dict_list = self._queue_agent_handler_to_env_dataloader.get()
-            with TimerSummary(logger, "_env_dataloader", group="timers/runner", step=step):
+            with TimerTB(logger, "_env_dataloader", group="timers/runner", step=step):
                 actions: Tensor = actions.cpu().numpy()
 
                 assert actions.shape[0] == len(xp_dict_list)
@@ -117,53 +130,32 @@ class Runner:
             if not self.conf.use_HER:
                 del experience_dict["info"]
 
-            with TimerSummary(logger, f"ReplayTransforms_{idx}", group="timers/runner", step=step):
+            with TimerTB(logger, f"ReplayTransforms_{idx}", group="timers/runner", step=step):
                 self.replay_shards[idx].add(experience_dict)
 
-    def _env_handler(self, idx):
-        """Pipeline Stage: Asynchronously handles stepping through env to get a response"""
-        conf = copy.copy(self.conf)
-        conf.instance_tag = idx
-        conf.monitor = conf.monitor if isinstance(conf.monitor, bool) else conf.monitor == idx
-        env = Env.make_mp(conf)
-        logger = SummaryWriter(Path(self.conf.log_dir) / f"Runner_Env_{idx}")
-        total_step = 0
-        render = conf.render if isinstance(self.conf.render, bool) else self.conf.render == idx
-        for episode in itertools.count():
-            if episode >= self.conf.max_num_episodes: break
+    def _ranker(self, leaderboard_size=10):
+        leaderboard = []
+        metadata = {}
+        for _ in itertools.count():
+            score = self._queue_to_ranker.get()
+            if (score > np.asarray(leaderboard)).any() or len(leaderboard) == 0:
+                # Put agent into leaderboard
+                while score in metadata: score = score + ((random.random() - 0.5) * 1e-6)
+                leaderboard.append(score)
+                leaderboard = list(sorted(leaderboard, reverse=True))
+                metadata[score] = {
+                    "path": Path(self.conf.log_dir) / "models" / f"score={score}_step={self.conf.global_step.value}"
+                }
+                self.agent.save(metadata[score]["path"])
+                if len(leaderboard) > leaderboard_size:
+                    cull = leaderboard[leaderboard_size:]
+                    leaderboard = leaderboard[:leaderboard_size]
 
-            # Reset & init all data from the environment
-            score = 0
-            experience = {"reward": 0.0,
-                          "episode_done": False,
-                          "task_done": False,
-                          "idx": idx,
-                          "info": {}
-                          }
-            experience.update(env.reset())
-            for experience["episode_step"] in itertools.count():
-                with common_utils.TimerSummary(logger, f"Pipeline_Stall{idx}", group="timers/pipeline_stats",
-                                               step=total_step):
-                    # Get action form agent
-                    self._queue_env_handler_to_agent_dataloader.put(experience)
-                    action = self._queue_to_environment_handler[idx].get()
+                    for c in cull:
+                        p = metadata[c]["path"]
+                        if p.exists():
+                            shutil.rmtree(metadata[c]["path"], ignore_errors=True)
+                        del metadata[c]
 
-                if experience["episode_done"]:
-                    break
-
-                with common_utils.TimerSummary(logger, f"Env_{idx}_Step", group="timers/runner_pipeline",
-                                               step=total_step):
-                    # Get new experience from environment and populate the dict
-                    obs, experience["reward"], experience["episode_done"], experience["info"] = env.step(action)
-                    experience.update(obs)
-                    experience["task_done"] = experience["episode_done"] and not experience["info"].get(
-                        'TimeLimit.truncated', False)
-                    if render:
-                        env.render()
-
-                    score += experience["reward"]
-                    total_step += 1
-
-            logger.add_scalar("Env/Episode_Score", score, episode)
-            logger.add_scalar("Env/TrainStep_Score", score, self.agent.iteration)
-            # logger.add_scalar("Env/EnvStep_Score", score, total_step)
+                lstring = '\n'.join([f'{i} : {l:.2f}' for i, l in enumerate(leaderboard)])
+                print(f"Top {leaderboard_size} scores: [\n{lstring}\n]")
