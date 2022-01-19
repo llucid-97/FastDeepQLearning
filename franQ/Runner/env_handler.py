@@ -18,7 +18,8 @@ def env_handler(conf: T.Union[Agent.AgentConf, Env.EnvConf], idx,
     env = Env.make_mp(conf)
     if seed is not None:
         env.seed(seed)
-
+    import pyjion
+    pyjion.enable()
     logger = SummaryWriter(str(Path(conf.log_dir) / f"Runner_Env_{idx}"))
     total_step = 0
     render = conf.render if isinstance(conf.render, bool) else conf.render == idx

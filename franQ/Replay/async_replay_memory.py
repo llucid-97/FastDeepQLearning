@@ -16,11 +16,12 @@ class AsyncReplayMemory:
         self._q_add = mp.Queue(maxsize=3)
         self._len = mp.Value("i", 0)
         self._maxlen = maxlen
-        self.proc = mp.Process(
+        proc = mp.Process(
             target=_child_process,
             args=(maxlen, batch_size, temporal_len, self._q_sample, self._q_add, self._q_sample_temporal)
         )
-        self.proc.start()
+        proc.start()
+        self.pid = proc.pid
 
     def add(self, experience_dict):
         self._len.value = min((self._len.value + 1), self._maxlen)
@@ -36,11 +37,16 @@ class AsyncReplayMemory:
         return self._len.value
 
     def __del__(self):
-        kill_proc_tree(self.proc.pid)
+        kill_proc_tree(self.pid)
 
 
 def _child_process(maxlen, batch_size, temporal_len, sample_q: mp.Queue, add_q: mp.Queue, temporal_q: mp.Queue):
     """Creates replay memory instance and parallel threads to add and sample memories"""
+    try:
+        import pyjion
+        pyjion.enable()
+    except ImportError:
+        pass
     replay_T = ReplayMemory  # ReplayMemory
     replay = replay_T(maxlen, batch_size, temporal_len)
 

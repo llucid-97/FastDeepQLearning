@@ -1,5 +1,11 @@
+import time
 import time as _time
-
+_time.clock = time.time
+try:
+    import pyjion
+    pyjion.enable()
+except ImportError:
+    pass
 
 class AttrDict(dict):
     """Allow accessing members via getitem for ease of use"""
@@ -77,3 +83,8 @@ class LeakyIntegrator:
     def __call__(self, x):
         self.leaky_x = (self.gamma * self.leaky_x) + ((1 - self.gamma) * x)
         return self.leaky_x
+
+try:
+    pyjion.disable()
+except:
+    pass

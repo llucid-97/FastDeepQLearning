@@ -32,6 +32,8 @@ class DeepQLearning(nn.Module):
         self._define_model()
 
         if kwargs.get("train_process", False):
+            import pyjion
+            pyjion.enable()
             self._initialize_trainer_members(kwargs["replays"])
             self._infinite_loop_for_async_training_process()
 
@@ -114,6 +116,8 @@ class DeepQLearning(nn.Module):
         return self.fast_params
 
     def _push_params(self, q: Queue):
+        import pyjion
+        pyjion.enable()
         while True:
             _ = q.get()
             state_dict = self.state_dict()
@@ -121,6 +125,8 @@ class DeepQLearning(nn.Module):
             self.param_queue.put(state_dict)
 
     def _pull_params(self):
+        import pyjion
+        pyjion.enable()
         while True:
             params = self.param_queue.get()
             self.load_state_dict(params), logging.info("loaded state dict")
@@ -224,6 +230,8 @@ class DeepQLearning(nn.Module):
         return curr_state, next_state
 
     def save(self, logdir):
+        import pyjion
+        pyjion.enable()
         logdir = Path(logdir)
         logdir.mkdir(parents=True, exist_ok=True)
 
@@ -235,6 +243,9 @@ class DeepQLearning(nn.Module):
 
     @staticmethod
     def load_from_file(logdir):
+        import pyjion
+        pyjion.enable()
+
         logdir = Path(logdir)
 
         conf = torch.load(logdir / "conf.tch")
