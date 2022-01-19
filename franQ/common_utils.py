@@ -36,10 +36,12 @@ def kill_proc_tree(pid, including_parent=True):
     except psutil.NoSuchProcess:
         pass
 
+
 def numpy_set_print_decimal_places(num_decimal_places=2):
     import numpy as np
     float_formatter = f"{{:.{num_decimal_places}f}}".format
     np.set_printoptions(formatter={'float_kind': float_formatter})
+
 
 def time_stamp_str():  # generate a timestamp used for logging
     import datetime

@@ -140,13 +140,8 @@ class DeepQLearning(nn.Module):
         with torch.no_grad():
             latent_state = self.encoder.forward_eval(experiences)
             explore_action, log_prob, exploit_action = self.actor_critic.act(latent_state)
-
-            if self.conf.num_instances > 1:
-                # Vectorized Choose: whether to explore or exploit
-                exploit_mask = (experiences["idx"] == 0).view(-1, 1)
-                action = (exploit_action * exploit_mask) + (explore_action * torch.logical_not(exploit_mask))
-            else:
-                action = explore_action  # explore always if we only have 1 environment
+            exploit_mask = experiences["exploit_mask"]
+            action = (exploit_action * exploit_mask) + (explore_action * torch.logical_not(exploit_mask))
 
             # if self.conf.discrete: action = action.argmax(-1, True)  # go from one-hot encoding to sparse
             return action

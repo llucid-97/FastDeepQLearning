@@ -87,8 +87,13 @@ class ChildProcess():
         while True:
             try:
                 command, args = self.queues["command"].get()
-                response = getattr(self, command)(args)
-                self.queues["response"].put(response)
+                if command == "close":
+                    self.close()
+                    self.queues["response"].put(None)
+                    exit(0)
+                else:
+                    response = getattr(self, command)(args)
+                    self.queues["response"].put(response)
             except Exception as e:
                 import traceback, logging
                 traceback.print_exc()

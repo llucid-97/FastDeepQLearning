@@ -21,6 +21,7 @@ class AgentConf(AttrDict):
         self.inference_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu:0")
         self.dtype = torch.float32
         # Logging
+        self.eval_envs = [0]
         self.log_dir = Path("logs")
         self.enable_timers = False
         self.log_interval = 50

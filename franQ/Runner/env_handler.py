@@ -1,25 +1,30 @@
 import typing as T, copy, itertools
-from queue import Queue
+from queue import Queue, Full
 from pathlib import Path
 from franQ import Agent, Env
 from franQ.common_utils import TimerTB
 
 from torch.utils.tensorboard import SummaryWriter
 
-
 def env_handler(conf: T.Union[Agent.AgentConf, Env.EnvConf], idx,
                 queue_put_experience: Queue, queue_get_action: Queue,
-                queue_put_score: Queue = None):
+                queue_put_score: Queue = None,
+                num_episodes=None, seed=None, wait_for_ranker=False):
     """Pipeline Stage: Asynchronously handles stepping through env to get a response"""
     conf = copy.copy(conf)
     conf.instance_tag = idx
     conf.monitor = conf.monitor if isinstance(conf.monitor, bool) else conf.monitor == idx
+
     env = Env.make_mp(conf)
+    if seed is not None:
+        env.seed(seed)
+
     logger = SummaryWriter(str(Path(conf.log_dir) / f"Runner_Env_{idx}"))
     total_step = 0
     render = conf.render if isinstance(conf.render, bool) else conf.render == idx
 
-    for episode in itertools.count():
+    episode_iterator = range(num_episodes) if num_episodes else itertools.count()
+    for episode in episode_iterator:
         if episode >= conf.max_num_episodes: break
 
         # Reset & init all data from the environment
@@ -59,4 +64,9 @@ def env_handler(conf: T.Union[Agent.AgentConf, Env.EnvConf], idx,
         logger.add_scalar("Env/TrainStep_Score", score, conf.global_step.value)
         # logger.add_scalar("Env/EnvStep_Score", score, total_step)
         if queue_put_score is not None:
-            queue_put_score.put_nowait(score)
+            try:
+                queue_put_score.put(score, wait_for_ranker)
+            except Full:
+                pass
+
+    env.close()
