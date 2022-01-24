@@ -1,4 +1,5 @@
 from franQ.Replay.replay_memory import ReplayMemory, OversampleError
+from franQ.Replay.memmap_replay_memory import ZarrReplayMemory, CatReplayMemory, NpMmapReplayMemory
 from torch import multiprocessing as mp
 from threading import Thread
 import time
@@ -8,7 +9,7 @@ from franQ.common_utils import kill_proc_tree
 class AsyncReplayMemory:
     """Creates a replay memory in another process and sets up an API to access it"""
 
-    def __init__(self, maxlen, batch_size, temporal_len):
+    def __init__(self, maxlen, batch_size, temporal_len, **kwargs):
         self.batch_size = batch_size
         self._temporal_len = temporal_len
         self._q_sample = mp.Queue(maxsize=3)
@@ -18,7 +19,8 @@ class AsyncReplayMemory:
         self._maxlen = maxlen
         proc = mp.Process(
             target=_child_process,
-            args=(maxlen, batch_size, temporal_len, self._q_sample, self._q_add, self._q_sample_temporal)
+            args=(maxlen, batch_size, temporal_len, self._q_sample, self._q_add, self._q_sample_temporal),
+            kwargs=kwargs
         )
         proc.start()
         self.pid = proc.pid
@@ -40,15 +42,24 @@ class AsyncReplayMemory:
         kill_proc_tree(self.pid)
 
 
-def _child_process(maxlen, batch_size, temporal_len, sample_q: mp.Queue, add_q: mp.Queue, temporal_q: mp.Queue):
+def _child_process(maxlen, batch_size, temporal_len, sample_q: mp.Queue, add_q: mp.Queue, temporal_q: mp.Queue,
+                   replay_T=NpMmapReplayMemory, log_dir=None):
     """Creates replay memory instance and parallel threads to add and sample memories"""
     try:
         import pyjion
         pyjion.enable()
     except ImportError:
         pass
-    replay_T = ReplayMemory  # ReplayMemory
-    replay = replay_T(maxlen, batch_size, temporal_len)
+
+    from pathlib import Path
+    if log_dir is None:
+        import uuid
+        import tempfile
+        log_dir = tempfile.gettempdir()
+        log_dir = Path(log_dir) / f"{uuid.uuid4()}"
+    Path(log_dir).mkdir(exist_ok=True, parents=True)
+    replay = replay_T(maxlen, batch_size, temporal_len,
+                      log_dir=log_dir)
 
     def sample():
         while True:
