@@ -5,12 +5,15 @@ from franQ import Agent, Env
 from franQ.common_utils import TimerTB
 
 from torch.utils.tensorboard import SummaryWriter
+import pyjion
+
 
 def env_handler(conf: T.Union[Agent.AgentConf, Env.EnvConf], idx,
                 queue_put_experience: Queue, queue_get_action: Queue,
                 queue_put_score: Queue = None,
                 num_episodes=None, seed=None, wait_for_ranker=False):
     """Pipeline Stage: Asynchronously handles stepping through env to get a response"""
+    pyjion.enable()
     conf = copy.copy(conf)
     conf.instance_tag = idx
     conf.monitor = conf.monitor if isinstance(conf.monitor, bool) else conf.monitor == idx
@@ -18,8 +21,7 @@ def env_handler(conf: T.Union[Agent.AgentConf, Env.EnvConf], idx,
     env = Env.make_mp(conf)
     if seed is not None:
         env.seed(seed)
-    import pyjion
-    pyjion.enable()
+
     logger = SummaryWriter(str(Path(conf.log_dir) / f"Runner_Env_{idx}"))
     total_step = 0
     render = conf.render if isinstance(conf.render, bool) else conf.render == idx

@@ -1,5 +1,5 @@
 # Std lib
-import os, pickle, itertools, typing as T, logging
+import os, pickle, itertools, typing as T, logging, copy
 from collections import OrderedDict
 from pathlib import Path
 from threading import Thread
@@ -8,13 +8,14 @@ from queue import Queue
 # 3rd party
 import torch
 from torch import nn, multiprocessing as mp, Tensor
-from franQ.Replay.wrappers import TorchDataLoader
-from franQ.Agent.conf import AgentConf, AttrDict
 from torch.utils.tensorboard import SummaryWriter
+import pyjion
 
 # locals
 from .utils.common import soft_update, hard_update
 from .components import soft_actor_critic, encoder
+from franQ.Replay.wrappers import TorchDataLoader
+from franQ.Agent.conf import AgentConf, AttrDict
 
 TensorDict = T.Dict[str, Tensor]
 
@@ -22,6 +23,8 @@ TensorDict = T.Dict[str, Tensor]
 class DeepQLearning(nn.Module):
     def __init__(self, conf: AgentConf, **kwargs):
         nn.Module.__init__(self)
+        pyjion.enable()
+
         conf: AgentConf = conf if isinstance(conf, AttrDict) else AttrDict().from_dict(conf)
         self.conf = conf
         self.param_queue = kwargs.get("param_queue", mp.Queue(maxsize=1))
@@ -32,8 +35,6 @@ class DeepQLearning(nn.Module):
         self._define_model()
 
         if kwargs.get("train_process", False):
-            import pyjion
-            pyjion.enable()
             self._initialize_trainer_members(kwargs["replays"])
             self._infinite_loop_for_async_training_process()
 
@@ -116,7 +117,6 @@ class DeepQLearning(nn.Module):
         return self.fast_params
 
     def _push_params(self, q: Queue):
-        import pyjion
         pyjion.enable()
         while True:
             _ = q.get()
@@ -125,7 +125,6 @@ class DeepQLearning(nn.Module):
             self.param_queue.put(state_dict)
 
     def _pull_params(self):
-        import pyjion
         pyjion.enable()
         while True:
             params = self.param_queue.get()
@@ -230,12 +229,10 @@ class DeepQLearning(nn.Module):
         return curr_state, next_state
 
     def save(self, logdir):
-        import pyjion
         pyjion.enable()
         logdir = Path(logdir)
         logdir.mkdir(parents=True, exist_ok=True)
 
-        import copy
         conf = copy.copy(self.conf)
         conf.global_step = conf.global_step.value
         torch.save(conf, logdir / "conf.tch")
@@ -243,9 +240,7 @@ class DeepQLearning(nn.Module):
 
     @staticmethod
     def load_from_file(logdir):
-        import pyjion
         pyjion.enable()
-
         logdir = Path(logdir)
 
         conf = torch.load(logdir / "conf.tch")

@@ -66,7 +66,7 @@ def calculate_montecarlo_return(rewards: Iterable, gamma):
     return rewards
 
 
-@numba.njit
+# @numba.njit
 def _inner(rewards, gamma, size):
     for i in range(1, size):
         rewards[i] += rewards[i - 1] * gamma

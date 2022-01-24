@@ -7,11 +7,11 @@ import numpy as np
 import torch
 from torch import Tensor
 from torch.utils.tensorboard import SummaryWriter
+import pyjion
 
 from franQ import Env, Replay, Agent
 from franQ.common_utils import TimerTB
 from .env_handler import env_handler
-
 
 class Runner:
     """Manages the experiment: Handles interactions between agent, environment and replay memory"""
@@ -59,7 +59,7 @@ class Runner:
 
     def _agent_dataloader(self):
         """Pipeline Stage: Asynchronously converts data to right format for agent and loads to agent's device"""
-        import pyjion
+
         pyjion.enable()
         logger = SummaryWriter(Path(self.conf.log_dir) / "Runner_DataLoader")
         inference_keys = None
@@ -92,7 +92,6 @@ class Runner:
 
     def _agent_handler(self):
         """Pipeline Stage: Asynchronously runs agent inference on batch of env requests (observations)"""
-        import pyjion
         pyjion.enable()
         logger = SummaryWriter(Path(self.conf.log_dir) / "Runner_Inference")
         for step in itertools.count():
@@ -104,7 +103,7 @@ class Runner:
 
     def _env_dataloader(self):
         """Pipeline Stage: Asynchronously copies action from Inference_device to cpu and sends it to env and replay"""
-        import pyjion
+
         pyjion.enable()
         logger = SummaryWriter(Path(self.conf.log_dir) / "Runner_DataUnloader")
         for step in itertools.count():
@@ -134,7 +133,7 @@ class Runner:
     def _replay_handler(self, idx):
         """Pipeline Stage: Asynchronously performs transformations before storing to replay.
         Transformations must be defined as replay wrappers in init"""
-        import pyjion
+
         pyjion.enable()
         logger = SummaryWriter(Path(self.conf.log_dir) / f"Runner_replay_{idx}")
         for step in itertools.count():
@@ -146,7 +145,7 @@ class Runner:
                 self.replay_shards[idx].add(experience_dict)
 
     def _ranker(self, leaderboard_size=10):
-        import pyjion
+
         pyjion.enable()
         leaderboard = []
         metadata = {}

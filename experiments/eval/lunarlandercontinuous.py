@@ -1,12 +1,7 @@
-if __name__ == '__main__':
-
-    import pyjion
-
-    pyjion.enable()
 from franQ.common_utils import AttrDict
 from franQ import Env, Agent
 import multiprocessing as mp
-from experiments.utils.launch_experiment import launch_experiment
+from experiments.utils.launch_experiment import evaluate_experiment
 
 
 def main():
@@ -37,10 +32,14 @@ def main():
 
     global_conf.update(agent_conf)
 
-    launch_experiment(global_conf)
+    evaluate_experiment(
+        global_conf,
+        r"D:\projects\FastDeepQLearning\experiments\logs\2022-01-20___15-22-31classic_LunarLanderContinuous-v2",
+        episodes=20,
+        seeds=[0, 2, 4]
+    )
 
 
 if __name__ == '__main__':
-
     mp.set_start_method("spawn", force=True)
     main()
