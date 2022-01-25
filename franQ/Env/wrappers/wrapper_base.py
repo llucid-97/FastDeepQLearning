@@ -26,6 +26,7 @@ class Wrapper():
 
     def __getattr__(self, name):
         if "env" in self.__dict__:
+            print(name)
             return getattr(self.env, name)
 
     @property

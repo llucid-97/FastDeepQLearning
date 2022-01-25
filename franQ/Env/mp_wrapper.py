@@ -77,7 +77,7 @@ class ChildProcess():
     def render(self, kwargs):
         return self.env.render(**kwargs)
 
-    def close(self):
+    def close(self, args):
         return self.env.close()
 
     def seed(self, seed=None):
@@ -87,14 +87,10 @@ class ChildProcess():
         while True:
             try:
                 command, args = self.queues["command"].get()
-                if command == "close":
-                    self.close()
-                    self.queues["response"].put(None)
-                    exit(0)
-                else:
-                    response = getattr(self, command)(args)
-                    self.queues["response"].put(response)
+                response = getattr(self, command)(args)
+                self.queues["response"].put(response)
             except Exception as e:
                 import traceback, logging
                 traceback.print_exc()
                 logging.error(e)
+                self.queues["response"].put(str(e))
