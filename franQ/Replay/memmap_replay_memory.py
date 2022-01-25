@@ -2,7 +2,7 @@ import typing as T, pickle
 import numpy as np
 from .replay_memory import OversampleError, ReplayMemory
 from numpy.lib.format import open_memmap
-import zarr, caterva as cat
+
 from pathlib import Path
 
 
@@ -16,7 +16,6 @@ class ZarrReplayMemory(ReplayMemory):
         self.kwargs = dict(kwargs)
         del kwargs["self"], kwargs["log_dir"]
         super().__init__(**kwargs)
-        self.memory: T.Dict[str, zarr.Array] = {}
 
     def _jit_initialize(self, experience_dict: dict):
         """This method is called the first time an experience is added.
@@ -52,10 +51,12 @@ class ZarrReplayMemory(ReplayMemory):
                 self.metadata[k] = {"shape": shape, "dtype": dtype}
 
     def create_memmap(self, data_path, shape, dtype):
+        import zarr
         return zarr.open(str(data_path), mode='a', shape=shape, dtype=dtype,
                          chunks=(self._temporal_len,) + tuple(shape[1:]))
 
     def open_existing_memmap(self, data_path):
+        import zarr
         return zarr.open(str(data_path), mode='a')
 
 
@@ -69,6 +70,7 @@ class NpMmapReplayMemory(ZarrReplayMemory):
 
 class CatReplayMemory(ZarrReplayMemory):
     def create_memmap(self, data_path, shape, dtype):
+        import caterva as cat
         fill_value = np.array(0).astype(dtype).tobytes()
         return cat.full(shape, fill_value=fill_value,
                         chunks=(self._temporal_len,) + tuple(shape[1:]),
@@ -76,4 +78,5 @@ class CatReplayMemory(ZarrReplayMemory):
                         urlpath=str(data_path))
 
     def open_existing_memmap(self, data_path):
+        import caterva as cat
         return cat.open(str(data_path))

@@ -13,3 +13,4 @@ class EnvConf(AttrDict):
         self.render: T.Optional[int] = True
         self.monitor = False # If enabled, captures a video of the rollouts using the render and ffmpeg
         self.artefact_root: T.Optional[str] = None
+        self.env_specific_config = None

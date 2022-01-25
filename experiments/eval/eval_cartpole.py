@@ -4,7 +4,9 @@ import multiprocessing as mp
 from experiments.utils.launch_experiment import evaluate_experiment
 
 
-def main():
+def main(eval_dir):
+    from pathlib import Path
+    assert Path(eval_dir).exists(), "Please specify a path for an existing experiment to evaluate!"
     """Setup config and call experiment launcher"""
     # TODO: Allow reading conf from file and setting up argparse for poitning to config file
     global_conf = AttrDict()  # joint global config
@@ -12,8 +14,8 @@ def main():
     # configure the environment
     env_conf = Env.EnvConf()
     env_conf.suite = "classic"
-    env_conf.name = "LunarLanderContinuous-v2"
-    env_conf.render = None
+    env_conf.name = "CartPole-v1"
+    env_conf.render = True
     env_conf.monitor = None
     global_conf.update(env_conf)  # merge
 
@@ -34,12 +36,14 @@ def main():
 
     evaluate_experiment(
         global_conf,
-        r"D:\projects\FastDeepQLearning\experiments\logs\2022-01-20___15-22-31classic_LunarLanderContinuous-v2",
-        episodes=20,
+        eval_dir,
+        episodes=2,
         seeds=[0, 2, 4]
     )
 
 
 if __name__ == '__main__':
     mp.set_start_method("spawn", force=True)
-    main()
+    main(
+    r"D:\projects\FastDeepQLearning\experiments\logs\2022-01-25___09-03-09classic_CartPole-v1"
+    )

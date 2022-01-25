@@ -25,7 +25,7 @@ class DeepQLearning(nn.Module):
         nn.Module.__init__(self)
         pyjion.enable()
 
-        conf: AgentConf = conf if isinstance(conf, AttrDict) else AttrDict().from_dict(conf)
+        conf: AgentConf = conf if isinstance(conf, AttrDict) else AttrDict(conf)
         self.conf = conf
         self.param_queue = kwargs.get("param_queue", mp.Queue(maxsize=1))
 

@@ -11,7 +11,7 @@ class MultiProcessingWrapper():
             "command": mp.Queue(maxsize=1),
             "response": mp.Queue(maxsize=1)
         }
-        self._proc = mp.Process(target=ChildProcess, args=[env_maker, kwargs.to_dict(), self._queues])
+        self._proc = mp.Process(target=ChildProcess, args=[env_maker, kwargs, self._queues])
         self._proc.start()
 
         self.action_space = self._get_proc_attr("action_space")
@@ -56,7 +56,7 @@ class MultiProcessingWrapper():
 class ChildProcess():
     def __init__(self, env_maker, kwargs, queues: T.Dict[str, mp.Queue]):
         # makes the env in the new process and parses communications with the host process
-        self.env = env_maker(AttrDict().from_dict(kwargs))
+        self.env = env_maker(AttrDict(kwargs))
         self.queues = queues
 
         self.loop()
