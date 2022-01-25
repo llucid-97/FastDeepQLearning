@@ -1,3 +1,8 @@
+if __name__ == '__main__':
+
+    import pyjion
+
+    pyjion.enable()
 from franQ.common_utils import AttrDict
 from franQ import Env, Agent
 import multiprocessing as mp
@@ -6,15 +11,15 @@ from experiments.utils.launch_experiment import launch_experiment
 
 def main():
     """Setup config and call experiment launcher"""
-    #TODO: Allow reading conf from file and setting up argparse for poitning to config file
+    # TODO: Allow reading conf from file and setting up argparse for poitning to config file
     global_conf = AttrDict()  # joint global config
 
     # configure the environment
     env_conf = Env.EnvConf()
     env_conf.suite = "classic"
     env_conf.name = "LunarLanderContinuous-v2"
-    env_conf.render = 0
-    env_conf.monitor = 0
+    env_conf.render = None
+    env_conf.monitor = None
     global_conf.update(env_conf)  # merge
 
     # configure the agent
@@ -30,12 +35,12 @@ def main():
     agent_conf.critic_hidden_dims = [256, 256]
     agent_conf.init_log_alpha = 0
 
-
     global_conf.update(agent_conf)
 
     launch_experiment(global_conf)
 
 
 if __name__ == '__main__':
+
     mp.set_start_method("spawn", force=True)
     main()

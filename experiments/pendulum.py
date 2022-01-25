@@ -13,7 +13,8 @@ def main():
     env_conf = Env.EnvConf()
     env_conf.suite = "classic"
     env_conf.name = "Pendulum-v0"
-    env_conf.render = 0
+    env_conf.render = None
+    env_conf.monitor = None
     global_conf.update(env_conf)  # merge
 
     # configure the agent

@@ -1,5 +1,11 @@
+import time
 import time as _time
-
+_time.clock = time.time
+try:
+    import pyjion
+    pyjion.enable()
+except ImportError:
+    pass
 
 class AttrDict(dict):
     """Allow accessing members via getitem for ease of use"""
@@ -36,17 +42,19 @@ def kill_proc_tree(pid, including_parent=True):
     except psutil.NoSuchProcess:
         pass
 
+
 def numpy_set_print_decimal_places(num_decimal_places=2):
     import numpy as np
     float_formatter = f"{{:.{num_decimal_places}f}}".format
     np.set_printoptions(formatter={'float_kind': float_formatter})
+
 
 def time_stamp_str():  # generate a timestamp used for logging
     import datetime
     return datetime.datetime.now().strftime("%Y-%m-%d___%H-%M-%S")
 
 
-class TimerSummary:
+class TimerTB:
     """Scope timer that prints to SummaryWriter"""
     CLASS_ENABLE_SWITCH = True  # a kill switch to conveniently enable/disable logging in 1 central place
 
@@ -75,3 +83,8 @@ class LeakyIntegrator:
     def __call__(self, x):
         self.leaky_x = (self.gamma * self.leaky_x) + ((1 - self.gamma) * x)
         return self.leaky_x
+
+try:
+    pyjion.disable()
+except:
+    pass

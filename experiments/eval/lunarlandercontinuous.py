@@ -1,7 +1,7 @@
 from franQ.common_utils import AttrDict
 from franQ import Env, Agent
 import multiprocessing as mp
-from experiments.utils.launch_experiment import launch_experiment
+from experiments.utils.launch_experiment import evaluate_experiment
 
 
 def main():
@@ -12,7 +12,7 @@ def main():
     # configure the environment
     env_conf = Env.EnvConf()
     env_conf.suite = "classic"
-    env_conf.name = "Acrobot-v1"
+    env_conf.name = "LunarLanderContinuous-v2"
     env_conf.render = None
     env_conf.monitor = None
     global_conf.update(env_conf)  # merge
@@ -23,7 +23,7 @@ def main():
     agent_conf.inference_device = "cpu"
     agent_conf.use_nStep_lowerbounds = True
     agent_conf.num_critics = 5
-    agent_conf.use_target_encoder = False
+
     # NOTE: Fewer layers ===> Faster training.
     agent_conf.enc1d_hidden_dims = []
     agent_conf.pi_hidden_dims = [256]
@@ -32,7 +32,12 @@ def main():
 
     global_conf.update(agent_conf)
 
-    launch_experiment(global_conf)
+    evaluate_experiment(
+        global_conf,
+        r"D:\projects\FastDeepQLearning\experiments\logs\2022-01-20___15-22-31classic_LunarLanderContinuous-v2",
+        episodes=20,
+        seeds=[0, 2, 4]
+    )
 
 
 if __name__ == '__main__':

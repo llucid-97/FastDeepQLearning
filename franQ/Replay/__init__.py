@@ -8,8 +8,11 @@ from franQ import Agent as __Agent
 def make(conf: __Agent.AgentConf, **kwargs):
     """Helper function to construct the replay memories"""
     # Reader Shards
+    from pathlib import Path
+    import uuid
     shards = [AsyncReplayMemory(
-        conf.replay_size, conf.batch_size, conf.temporal_len
+        conf.replay_size, conf.batch_size, conf.temporal_len,
+        log_dir=Path(conf.log_dir) / "replay" / f"{uuid.uuid4()}"
     ) for _ in range(conf.num_instances)]
 
     # Construct optional wrappers around it for modular transformations

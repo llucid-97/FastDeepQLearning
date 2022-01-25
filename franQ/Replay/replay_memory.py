@@ -14,7 +14,7 @@ class ReplayMemory:
         - Each environment has its unique instance so memories are added chronologically
     """
 
-    def __init__(self, maxlen, batch_size, temporal_len):
+    def __init__(self, maxlen, batch_size, temporal_len,**kwargs):
         self._batch_size, self._temporal_len, self._maxlen = batch_size, temporal_len, maxlen
         self._top, self._curr_len = 0, 0
         self.memory: T.Dict[str, np.ndarray] = {}
