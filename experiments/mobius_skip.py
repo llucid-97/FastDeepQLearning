@@ -32,16 +32,17 @@ def main():
     agent_conf.pi_hidden_dims = [256]
     agent_conf.critic_hidden_dims = [256, 256]
     agent_conf.init_log_alpha = 0
-    agent_conf.replay_size = int(1e6)
+    agent_conf.replay_size = int(1e5)
     global_conf.update(agent_conf)
 
     factory = py_ics.Environments.TrajConFactory()
     factory.use_potential_based_rewards = False
     factory.use_product_reward_components = True
+    factory.use_cae_reward = False
     factory.residual = False
-    factory.level = 2
-    factory.time_limit = int(2e5)
-    factory.frame_skip = 1
+    factory.level = 0
+    factory.time_limit = int(1.2e5)
+    factory.frame_skip = 10
     global_conf.env_specific_config = factory
 
     launch_experiment(global_conf)

@@ -11,7 +11,7 @@ def make(conf: __Agent.AgentConf, **kwargs):
     from pathlib import Path
     import uuid
     shards = [AsyncReplayMemory(
-        conf.replay_size, conf.batch_size, conf.temporal_len,
+        int(conf.replay_size), conf.batch_size, conf.temporal_len,
         log_dir=Path(conf.log_dir) / "replay" / f"{uuid.uuid4()}"
     ) for _ in range(conf.num_instances)]
 
