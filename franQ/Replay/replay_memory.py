@@ -14,7 +14,7 @@ class ReplayMemory:
         - Each environment has its unique instance so memories are added chronologically
     """
 
-    def __init__(self, maxlen, batch_size, temporal_len,**kwargs):
+    def __init__(self, maxlen, batch_size, temporal_len, **kwargs):
         self._batch_size, self._temporal_len, self._maxlen = batch_size, temporal_len, int(maxlen)
         self._top, self._curr_len = 0, 0
         self.memory: T.Dict[str, np.ndarray] = {}
@@ -52,10 +52,12 @@ class ReplayMemory:
     def temporal_sample(self):
         # sample [Temporal, Batch, Experience]
         _len = len(self)
-        if _len < (self._temporal_len * 2): raise OversampleError("Trying to sample more memories than available!")
-        if _len < self._batch_size: raise OversampleError("Trying to sample more memories than available!")
-
+        if (_len < (self._temporal_len * 2)) or (_len < self._batch_size):
+            raise OversampleError("Trying to sample more memories than available!")
         batch = np.random.randint(0, _len - self._temporal_len, self._batch_size)
+        return self._temporal_sample_idxes(batch,_len)
+
+    def _temporal_sample_idxes(self,batch,_len):
         temporal = np.arange(self._temporal_len)
         idxes = np.reshape(temporal, (-1, 1)) + np.reshape(batch, (1, -1))
         idxes = idxes % _len

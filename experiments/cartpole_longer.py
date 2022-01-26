@@ -11,7 +11,7 @@ def main():
 
     # configure the environment
     env_conf = Env.EnvConf()
-    env_conf.suite = "classic"
+    env_conf.suite = "classic_longer"
     env_conf.name = "CartPole-v1"
     env_conf.render = None
     env_conf.monitor = None
@@ -29,6 +29,7 @@ def main():
     agent_conf.pi_hidden_dims = [256]
     agent_conf.critic_hidden_dims = [256, 256]
     agent_conf.init_log_alpha = 0
+    agent_conf.replay_size = int(5e6)
 
     global_conf.update(agent_conf)
 
