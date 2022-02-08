@@ -10,20 +10,25 @@ from py_ics.Environments import TrajConFactory
 
 
 class TrajControl(wrapper_base.Wrapper):
-    TIME_LIMITS = [
-        int(1e3),
-        int(1e4),
-        int(1e5),
-        int(1e6),
-    ]
 
     def __init__(self, conf: EnvConf):
-        version = int(conf.name.split('-v')[-1])
+        version = int(conf.name.split('-v')[-1])# 0: Deterministic, 1: Random
+
+
         if conf.env_specific_config is None:
             factory = py_ics.Environments.TrajConFactory()
-            factory.time_limit = self.TIME_LIMITS[version]
         else:
             factory = conf.env_specific_config
+
+        if version > 0:
+            # This is designed for multi env generators. It maps each to a specific level.
+            idx = conf.instance_tag
+            if conf.instance_tag is None:
+                import logging
+                logging.warning("TrajControl-v1 REQUIRES INSTANCE TAG! ASSUMING SET TO 0!")
+                idx = 0
+            factory.level = (idx % 5)
+
         assert conf.log_dir is not None
         factory.log_dir = conf.log_dir
 
