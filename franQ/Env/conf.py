@@ -8,6 +8,7 @@ class EnvConf(AttrDict):
         self.name = "LunarLanderContinuous-v2"
         self.suite = "classic"
         self.instance_tag:T.Optional[int] = None
+        self.num_instances = 2
         self.max_num_episodes = float('inf')
         self.resolution = (84, 84)
         self.render: T.Optional[int] = True

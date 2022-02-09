@@ -39,9 +39,10 @@ def main(eval_dir):
     factory.use_product_reward_components = True
     factory.use_cae_reward = True
     factory.residual = False
-    factory.level = 2
-    factory.time_limit = int(1e6)
-    factory.frame_skip = 1
+    factory.level = 5
+    factory.time_limit = int(1e7)
+    factory.frame_skip = 50
+    factory.async_render = False
     global_conf.env_specific_config = factory
 
     evaluate_experiment(
@@ -55,5 +56,5 @@ def main(eval_dir):
 if __name__ == '__main__':
     mp.set_start_method("spawn", force=True)
     main(
-    r"D:\projects\FastDeepQLearning\experiments\logs\2022-01-26___11-41-22traj_control_traj_control-v0"
+    r"D:\projects\FastDeepQLearning\experiments\logs\2022-02-08___22-30-49traj_control_traj_control-v1"
     )

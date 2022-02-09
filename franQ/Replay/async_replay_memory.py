@@ -39,7 +39,7 @@ class AsyncReplayMemory:
 
 
 def _child_process(maxlen, batch_size, temporal_len, add_q: mp.Queue, temporal_q: mp.Queue,
-                   replay_T=ZarrReplayMemory, log_dir=None):
+                   replay_T=ReplayMemory, log_dir=None):
     """Creates replay memory instance and parallel threads to add and sample memories"""
     try:
         import pyjion

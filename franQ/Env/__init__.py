@@ -23,7 +23,7 @@ def make(conf: EnvConf):
     elif suite in ("classic_goal",):
         from franQ.Env.classic_control_goal import ClassicGoalEnv as EnvClass
     elif suite in ("traj_control",):
-        from franQ.Env.traj_control import TrajControl as EnvClass
+        from franQ.Env.traj_control import TrajControlWrapper as EnvClass
     else:
         raise NotImplementedError(f"Suite {suite} not found!")
 

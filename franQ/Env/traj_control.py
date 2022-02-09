@@ -9,10 +9,10 @@ from franQ.Env.conf import EnvConf
 from py_ics.Environments import TrajConFactory
 
 
-class TrajControl(wrapper_base.Wrapper):
+class TrajControlWrapper(wrapper_base.Wrapper):
 
     def __init__(self, conf: EnvConf):
-        version = int(conf.name.split('-v')[-1])# 0: Deterministic, 1: Random
+        self.version = version = int(conf.name.split('-v')[-1])
 
 
         if conf.env_specific_config is None:
@@ -22,7 +22,8 @@ class TrajControl(wrapper_base.Wrapper):
 
         if version > 0:
             # This is designed for multi env generators. It maps each to a specific level.
-            idx = conf.instance_tag
+            self.idx = idx = conf.instance_tag
+            self.num_instances = conf.num_instances
             if conf.instance_tag is None:
                 import logging
                 logging.warning("TrajControl-v1 REQUIRES INSTANCE TAG! ASSUMING SET TO 0!")
@@ -31,12 +32,23 @@ class TrajControl(wrapper_base.Wrapper):
 
         assert conf.log_dir is not None
         factory.log_dir = conf.log_dir
+        self.factory = factory
+        self._init_actual()
 
-        env = factory.make_env()
+    def _init_actual(self):
+        env = self.factory.make_env()
         env = common.NormalizeActions(env)
-
         env = common.ObsDict(env, default_key="obs_1d")
         super().__init__(env)
+
+    def reset(self, **kwargs):
+        if self.version > 1:
+            # Cycle environments on reset
+            super().reset() # to allow episodic logging
+            self.factory.level = (self.factory.level + self.num_instances) % self.factory.num_levels
+            self._init_actual()
+        return super().reset()
+
 
     def get_reward_functor(self) -> T.Callable:
         return self.env.compute_reward
@@ -54,7 +66,7 @@ if __name__ == '__main__':
         factory.frame_skip = 1
         factory.use_product_reward_components = True
         conf.env_specific_config = factory
-        env = TrajControl(conf, )
+        env = TrajControlWrapper(conf, )
         import itertools
         for episode_num in itertools.count():
             obs = env.reset()
@@ -81,5 +93,6 @@ if __name__ == '__main__':
             print(f"score={score}")
             print(info)
             print()
+
 
     mainnnnn()
