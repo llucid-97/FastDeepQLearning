@@ -5,7 +5,6 @@ from franQ import Agent, Env
 from franQ.common_utils import TimerTB
 
 from torch.utils.tensorboard import SummaryWriter
-import pyjion
 
 
 def env_handler(conf: T.Union[Agent.AgentConf, Env.EnvConf], idx,
@@ -13,7 +12,6 @@ def env_handler(conf: T.Union[Agent.AgentConf, Env.EnvConf], idx,
                 queue_put_score: Queue = None,
                 num_episodes=None, seed=None, wait_for_ranker=False):
     """Pipeline Stage: Asynchronously handles stepping through env to get a response"""
-    pyjion.enable()
     conf = copy.copy(conf)
     conf.instance_tag = idx
     conf.monitor = conf.monitor if isinstance(conf.monitor, bool) else conf.monitor == idx

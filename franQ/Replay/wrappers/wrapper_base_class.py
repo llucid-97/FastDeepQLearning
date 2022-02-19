@@ -1,4 +1,7 @@
 from ..replay_memory import ReplayMemory
+from autoslot import Slots
+
+
 class ReplayMemoryWrapper:
     """
     Wraps the replay memory instance to allow a modular transformation.

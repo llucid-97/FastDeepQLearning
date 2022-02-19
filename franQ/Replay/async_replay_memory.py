@@ -19,7 +19,7 @@ class AsyncReplayMemory:
         proc = mp.Process(
             target=_child_process,
             args=(maxlen, batch_size, temporal_len, self._q_add, self._q_sample_temporal),
-            kwargs=kwargs
+            kwargs=kwargs,
         )
         proc.start()
         self.pid = proc.pid
@@ -41,12 +41,6 @@ class AsyncReplayMemory:
 def _child_process(maxlen, batch_size, temporal_len, add_q: mp.Queue, temporal_q: mp.Queue,
                    replay_T=ReplayMemory, log_dir=None):
     """Creates replay memory instance and parallel threads to add and sample memories"""
-    try:
-        import pyjion
-        pyjion.enable()
-    except ImportError:
-        pass
-
     from pathlib import Path
     if log_dir is None:
         import uuid
@@ -68,6 +62,6 @@ def _child_process(maxlen, batch_size, temporal_len, add_q: mp.Queue, temporal_q
         while True:
             replay.add(add_q.get())
 
-    threads = [Thread(target=add), Thread(target=sample_temporal)]
+    threads = [Thread(target=add, ), Thread(target=sample_temporal, )]
     [t.start() for t in threads]
     [t.join() for t in threads]

@@ -60,8 +60,8 @@ class Wrapper():
     def seed(self, seed=None):
         return self.env.seed(seed)
 
-    def compute_reward(self, achieved_goal, desired_goal, info):
-        return self.env.compute_reward(achieved_goal, desired_goal, info)
+    def compute_reward(self, achieved_goal, desired_goal):
+        return self.env.compute_reward(achieved_goal, desired_goal)
 
     @property
     def unwrapped(self):

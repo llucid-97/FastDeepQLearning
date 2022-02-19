@@ -2,12 +2,6 @@ import time
 import time as _time
 
 _time.clock = time.time
-try:
-    import pyjion
-
-    pyjion.enable()
-except ImportError:
-    pass
 
 
 class AttrDict(dict):
@@ -78,7 +72,3 @@ class LeakyIntegrator:
         return self.leaky_x
 
 
-try:
-    pyjion.disable()
-except:
-    pass

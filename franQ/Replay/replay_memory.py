@@ -1,5 +1,6 @@
 import typing as T
 import numpy as np
+# from autoslot import Slots
 
 
 class OversampleError(Exception): ...

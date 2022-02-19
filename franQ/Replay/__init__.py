@@ -16,14 +16,23 @@ def make(conf: __Agent.AgentConf, **kwargs):
     ) for _ in range(conf.num_instances)]
 
     # Construct optional wrappers around it for modular transformations
-    writer_wrappers = shards
-    if conf.use_HER:
-        writer_wrappers = [wrappers.her.HindsightNStepReplay(r,kwargs["compute_reward"],
-                                                             mode=conf.her_mode) for r in writer_wrappers]
-    if conf.use_squashed_rewards and not conf.use_HER:
-        writer_wrappers = [wrappers.squash_rewards.SquashRewards(r) for r in writer_wrappers]
+    write_heads = read_heads = shards
 
     if conf.use_nStep_lowerbounds:
-        writer_wrappers = [wrappers.nstep_return.NStepReturn(r, conf.nStep_return_steps, conf.gamma) for r in
-                           writer_wrappers]
-    return shards, writer_wrappers
+        if conf.her_mode == "vmap":
+            write_heads = [wrappers.nstep_return_vmap.NStepReturnVmap(r, conf.nStep_return_steps, conf.gamma) for r
+                           in write_heads]
+        else:
+            write_heads = [wrappers.nstep_return.NStepReturn(r, conf.nStep_return_steps, conf.gamma) for r in
+                           write_heads]
+    if conf.use_squashed_rewards and not conf.use_HER:
+        write_heads = [wrappers.squash_rewards.SquashRewards(r) for r in write_heads]
+    if conf.use_HER:
+        if conf.her_mode == "vmap":
+            write_heads = [wrappers.her_vmap.HindsightVmapWrite(r, kwargs["compute_reward"], ) for r in write_heads]
+            read_heads = [wrappers.her_vmap.HindsightVmapRead(r) for r in read_heads]
+        else:
+            write_heads = [wrappers.her.HindsightNStepReplay(r, kwargs["compute_reward"],
+                                                             mode=conf.her_mode) for r in write_heads]
+
+    return read_heads, write_heads

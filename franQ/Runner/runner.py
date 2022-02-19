@@ -7,7 +7,6 @@ import numpy as np
 import torch
 from torch import Tensor
 from torch.utils.tensorboard import SummaryWriter
-import pyjion
 
 from franQ import Env, Replay, Agent
 from franQ.common_utils import TimerTB
@@ -60,7 +59,6 @@ class Runner:
     def _agent_dataloader(self):
         """Pipeline Stage: Asynchronously converts data to right format for agent and loads to agent's device"""
 
-        pyjion.enable()
         logger = SummaryWriter(Path(self.conf.log_dir) / "Runner_DataLoader")
         inference_keys = None
         for step in itertools.count():
@@ -92,7 +90,6 @@ class Runner:
 
     def _agent_handler(self):
         """Pipeline Stage: Asynchronously runs agent inference on batch of env requests (observations)"""
-        pyjion.enable()
         logger = SummaryWriter(Path(self.conf.log_dir) / "Runner_Inference")
         for step in itertools.count():
             batch, xp_dict_list = self._queue_agent_dataloader_to_agent_handler.get()
@@ -104,7 +101,6 @@ class Runner:
     def _env_dataloader(self):
         """Pipeline Stage: Asynchronously copies action from Inference_device to cpu and sends it to env and replay"""
 
-        pyjion.enable()
         logger = SummaryWriter(Path(self.conf.log_dir) / "Runner_DataUnloader")
         for step in itertools.count():
             actions, xp_dict_list = self._queue_agent_handler_to_env_dataloader.get()
@@ -134,7 +130,6 @@ class Runner:
         """Pipeline Stage: Asynchronously performs transformations before storing to replay.
         Transformations must be defined as replay wrappers in init"""
 
-        pyjion.enable()
         logger = SummaryWriter(Path(self.conf.log_dir) / f"Runner_replay_{idx}")
         for step in itertools.count():
             experience_dict: dict = self._queue_to_replay_handler[idx].get()
@@ -146,7 +141,6 @@ class Runner:
 
     def _ranker(self, leaderboard_size=10):
 
-        pyjion.enable()
         leaderboard = []
         metadata = {}
         for _ in itertools.count():
@@ -170,5 +164,5 @@ class Runner:
                             shutil.rmtree(metadata[c]["path"], ignore_errors=True)
                         del metadata[c]
 
-                lstring = '\n'.join([f'{i} : {l:.2f}' for i, l in enumerate(leaderboard)])
+                lstring = '\n'.join([f'{i} : {l:.2f} @ step ({self.conf.global_step.value})' for i, l in enumerate(leaderboard)])
                 print(f"Top {leaderboard_size} scores: [\n{lstring}\n]")
