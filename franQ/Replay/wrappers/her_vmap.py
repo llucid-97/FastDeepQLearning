@@ -105,7 +105,7 @@ class HindsightVmapRead(ReplayMemoryWrapper):
         xp_dict = super(HindsightVmapRead, self).temporal_sample()
         # choose the goal
         num_virtual_goals = xp_dict["virtual_goals"].shape[2]
-        idx = random.randint(0, num_virtual_goals)
+        idx = random.randint(0, num_virtual_goals-1)
 
         xp_dict["desired_goal"] = xp_dict["virtual_goals"][:, :, idx]
         xp_dict["reward"] = xp_dict["virtual_rewards"][:, :, idx,None]

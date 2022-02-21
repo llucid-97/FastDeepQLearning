@@ -1,7 +1,7 @@
 import typing as T
 import numpy as np
 # from autoslot import Slots
-
+import numba
 
 class OversampleError(Exception): ...
 
@@ -33,7 +33,8 @@ class ReplayMemory:
                 shape = (self._maxlen, 1)
                 dtype = np.float32
             self.memory[k] = np.zeros(shape, dtype)
-
+    #
+    # @numba.jit
     def add(self, experience_dict: dict):
         if len(self.memory) == 0:
             self._jit_initialize(experience_dict)

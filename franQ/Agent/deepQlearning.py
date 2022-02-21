@@ -15,6 +15,7 @@ from .utils.common import soft_update, hard_update
 from .components import soft_actor_critic, encoder
 from franQ.Replay.wrappers import TorchDataLoader
 from franQ.Agent.conf import AgentConf, AttrDict
+from franQ.common_utils import PyjionJit
 
 TensorDict = T.Dict[str, Tensor]
 
@@ -84,11 +85,12 @@ class DeepQLearning(nn.Module):
         Thread(target=self._push_params, args=[dump_q]).start()
 
         # actual infinite loop[
-        for step_train in itertools.count():
-            self.train_step()
-            if (step_train % self.conf.param_update_interval) == 0:
-                # Signal the _push_params thread that we've updated enough times to warrant a push
-                if dump_q.empty(): dump_q.put_nowait(None)
+        with PyjionJit():
+            for step_train in itertools.count():
+                self.train_step()
+                if (step_train % self.conf.param_update_interval) == 0:
+                    # Signal the _push_params thread that we've updated enough times to warrant a push
+                    if dump_q.empty(): dump_q.put_nowait(None)
 
     def _initialize_trainer_members(self, replays):
         conf = self.conf
@@ -120,16 +122,18 @@ class DeepQLearning(nn.Module):
         return self.fast_params
 
     def _push_params(self, q: Queue):
-        while True:
-            _ = q.get()
-            state_dict = self.state_dict()
-            state_dict = OrderedDict({k: v.to("cpu:0") for k, v in state_dict.items()})
-            self.param_queue.put(state_dict)
+        with PyjionJit():
+            while True:
+                _ = q.get()
+                state_dict = self.state_dict()
+                state_dict = OrderedDict({k: v.to("cpu:0") for k, v in state_dict.items()})
+                self.param_queue.put(state_dict)
 
     def _pull_params(self):
-        while True:
-            params = self.param_queue.get()
-            self.load_state_dict(params), logging.info("loaded state dict")
+        with PyjionJit():
+            while True:
+                params = self.param_queue.get()
+                self.load_state_dict(params), logging.info("loaded state dict")
 
     @staticmethod
     def dict_to(state_dict: OrderedDict, device=None):
