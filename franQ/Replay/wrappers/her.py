@@ -10,7 +10,7 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
     - Episode terminates when goal is reached!
     """
 
-    def __init__(self, replay_buffer, compute_reward: T.Callable, ignore_keys=('info',), mode="final"):
+    def __init__(self, replay_buffer, compute_reward: T.Callable, ignore_keys=('info',), mode="random"):
 
         ReplayMemoryWrapper.__init__(self, replay_buffer)
         self.compute_reward = compute_reward
@@ -59,12 +59,12 @@ class HindsightNStepReplay(ReplayMemoryWrapper):
         done = []
         step = []
         for i, (ag, info) in enumerate(zip(self.buffers["achieved_goal"], self.buffers["info"])):
-            goal_reward, d = self.compute_reward(ag, hindsight_goal, info)
+            goal_reward, d = self.compute_reward(ag, hindsight_goal,)
             # Calculate the component of the reward that is NOT due to the desired_goal at the time
             # (ie things that just happen in the environment)
             goal_agnostic_reward = (
                     self.buffers["reward"][i] -
-                    self.compute_reward(ag, self.buffers["desired_goal"][i], info)[0]
+                    self.compute_reward(ag, self.buffers["desired_goal"][i])[0]
             )
             r = goal_agnostic_reward + goal_reward
 

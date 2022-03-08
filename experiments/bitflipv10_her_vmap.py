@@ -11,10 +11,9 @@ def main():
 
     # configure the environment
     env_conf = Env.EnvConf()
-    env_conf.suite = "classic_goal"
-    env_conf.name = "Acrobot-v1"
-    env_conf.render = None
-    env_conf.monitor = None
+    env_conf.suite = "bit_flip"
+    env_conf.name = "random-v10"
+    env_conf.render = False
     global_conf.update(env_conf)  # merge
 
     # configure the agent
@@ -23,6 +22,7 @@ def main():
     agent_conf.inference_device = "cpu"
     agent_conf.use_nStep_lowerbounds = True
     agent_conf.use_HER = True
+    agent_conf.her_mode = "vmap"
     agent_conf.num_critics = 5
 
     # NOTE: Fewer layers ===> Faster training.

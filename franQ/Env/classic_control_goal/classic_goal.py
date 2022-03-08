@@ -1,6 +1,6 @@
 from collections import OrderedDict
 import typing as T
-
+import warnings
 import numpy as np
 import gym
 
@@ -77,7 +77,7 @@ class AcrobotGoalEnv(wrappers.Wrapper):
     def step(self, action: T.Union[np.ndarray, int]):
         self.obs, _, terminal, info = self.env.step(action)
         obs = self._get_obs()
-        reward, done = self.compute_reward(obs["achieved_goal"], obs["desired_goal"], info)
+        reward, done = self.compute_reward(obs["achieved_goal"], obs["desired_goal"])
         self.current_step += 1
         # Episode terminate when we reached the goal or the max number of steps
         if self.current_step >= self._max_episode_steps:
@@ -85,9 +85,10 @@ class AcrobotGoalEnv(wrappers.Wrapper):
             info['TimeLimit.truncated'] = True
         return obs, reward, done, info
 
-    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info):
+    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray,):
         # Deceptive reward: it is positive only when the goal is achieved
-        reward = 0.0 if (achieved_goal >= desired_goal).all() else -1.0
+        cond = (achieved_goal >= desired_goal).all()
+        reward = 0.0 * cond  + (( -1.0) * (1-cond))
         done = reward == 0
         return reward, done
 
@@ -99,6 +100,8 @@ class PendulumGoalEnv(wrappers.Wrapper):
     """
 
     def __init__(self, ):
+        raise NotImplementedError("This Env uses old style non-vectorizable compute reward functions."
+                                  "\nThese are no longer supported. It will be updated in a later release")
         from gym.envs.classic_control.pendulum import PendulumEnv
         env: PendulumEnv = PendulumEnv()
         super().__init__(env)
@@ -132,7 +135,7 @@ class PendulumGoalEnv(wrappers.Wrapper):
             ("desired_goal", self.desired_goal.copy()),
         ])
 
-    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info):
+    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray,):
         # Deceptive reward: it is positive only when the goal is achieved
 
         th, thdot = tuple(achieved_goal)  # th := theta
@@ -161,7 +164,7 @@ class PendulumGoalEnv(wrappers.Wrapper):
         self.obs, _, terminal, info = self.env.step(action)
         info["u"] = action
         obs = self._get_obs()
-        reward, done = self.compute_reward(obs["achieved_goal"], obs["desired_goal"], info)
+        reward, done = self.compute_reward(obs["achieved_goal"], obs["desired_goal"])
         self.current_step += 1
         # Episode terminate when we reached the goal or the max number of steps
         if self.current_step >= self._max_episode_steps:
@@ -173,7 +176,7 @@ class PendulumGoalEnv(wrappers.Wrapper):
 class PendulumSparseGoalEnv(PendulumGoalEnv):
     """PundulumGoalEnv except with a sparse reward of +1 on reaching the goal state and -1 everywhere else"""
 
-    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info):
+    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray):
         # Deceptive reward: it is positive only when the goal is achieved
 
         th, thdot = tuple(achieved_goal)  # th := theta
@@ -193,6 +196,8 @@ class CartPoleGoalEnv(wrappers.Wrapper):
     """
 
     def __init__(self, ):
+        raise NotImplementedError("This Env uses old style non-vectorizable compute reward functions."
+                                  "\nThese are no longer supported. It will be updated in a later release")
         from gym.envs.classic_control.cartpole import CartPoleEnv
         env: CartPoleEnv = CartPoleEnv()
         super().__init__(env)
@@ -235,7 +240,7 @@ class CartPoleGoalEnv(wrappers.Wrapper):
         info["fail"] = fail
 
         obs = self._get_obs()
-        reward, done = self.compute_reward(obs["achieved_goal"], obs["desired_goal"], info)
+        reward, done = self.compute_reward(obs["achieved_goal"], obs["desired_goal"])
         self.current_step += 1
         # Episode terminate when we reached the goal or the max number of steps
         if self.current_step >= self._max_episode_steps:
@@ -243,7 +248,7 @@ class CartPoleGoalEnv(wrappers.Wrapper):
             info['TimeLimit.truncated'] = True
         return obs, reward, done, info
 
-    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info) -> T.Tuple[float, bool]:
+    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray,) -> T.Tuple[float, bool]:
         if info.get("fail", False):
             return -1.0, True
         if np.allclose(achieved_goal[0], desired_goal[0], atol=1e-2):
@@ -290,7 +295,7 @@ class MountainCarGoalEnv(wrappers.Wrapper):
     def step(self, action: T.Union[np.ndarray, int]):
         self.obs, _, _, info = self.env.step(action)
         obs = self._get_obs()
-        reward, done = self.compute_reward(obs["achieved_goal"], obs["desired_goal"], info)
+        reward, done = self.compute_reward(obs["achieved_goal"], obs["desired_goal"])
         self.current_step += 1
         # Episode terminate when we reached the goal or the max number of steps
         if self.current_step >= self._max_episode_steps:
@@ -298,7 +303,7 @@ class MountainCarGoalEnv(wrappers.Wrapper):
             info['TimeLimit.truncated'] = True
         return obs, reward, done, info
 
-    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info) -> T.Tuple[float, bool]:
+    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray) -> T.Tuple[float, bool]:
         position, velocity = achieved_goal
         goal_position, _ = desired_goal
         done = bool(position >= goal_position)  # and velocity >= self.env.goal_velocity)

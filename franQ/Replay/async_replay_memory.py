@@ -3,7 +3,7 @@ from franQ.Replay.memmap_replay_memory import ZarrReplayMemory, CatReplayMemory,
 from torch import multiprocessing as mp
 from threading import Thread
 import time
-from franQ.common_utils import kill_proc_tree
+from franQ.common_utils import kill_proc_tree, PyjionJit
 
 
 class AsyncReplayMemory:
@@ -19,7 +19,7 @@ class AsyncReplayMemory:
         proc = mp.Process(
             target=_child_process,
             args=(maxlen, batch_size, temporal_len, self._q_add, self._q_sample_temporal),
-            kwargs=kwargs
+            kwargs=kwargs,
         )
         proc.start()
         self.pid = proc.pid
@@ -41,33 +41,30 @@ class AsyncReplayMemory:
 def _child_process(maxlen, batch_size, temporal_len, add_q: mp.Queue, temporal_q: mp.Queue,
                    replay_T=ReplayMemory, log_dir=None):
     """Creates replay memory instance and parallel threads to add and sample memories"""
-    try:
-        import pyjion
-        pyjion.enable()
-    except ImportError:
-        pass
+    with PyjionJit():
+        from pathlib import Path
+        if log_dir is None:
+            import uuid
+            import tempfile
+            log_dir = tempfile.gettempdir()
+            log_dir = Path(log_dir) / f"{uuid.uuid4()}"
+        Path(log_dir).mkdir(exist_ok=True, parents=True)
+        replay = replay_T(maxlen, batch_size, temporal_len,
+                          log_dir=log_dir)
 
-    from pathlib import Path
-    if log_dir is None:
-        import uuid
-        import tempfile
-        log_dir = tempfile.gettempdir()
-        log_dir = Path(log_dir) / f"{uuid.uuid4()}"
-    Path(log_dir).mkdir(exist_ok=True, parents=True)
-    replay = replay_T(maxlen, batch_size, temporal_len,
-                      log_dir=log_dir)
+        def sample_temporal():
+            with PyjionJit():
+                while True:
+                    try:
+                        temporal_q.put(replay.temporal_sample())
+                    except OversampleError:
+                        time.sleep(1)
 
-    def sample_temporal():
-        while True:
-            try:
-                temporal_q.put(replay.temporal_sample())
-            except OversampleError:
-                time.sleep(1)
+        def add():
+            with PyjionJit():
+                while True:
+                    replay.add(add_q.get())
 
-    def add():
-        while True:
-            replay.add(add_q.get())
-
-    threads = [Thread(target=add), Thread(target=sample_temporal)]
-    [t.start() for t in threads]
-    [t.join() for t in threads]
+        threads = [Thread(target=add, ), Thread(target=sample_temporal, )]
+        [t.start() for t in threads]
+        [t.join() for t in threads]

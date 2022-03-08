@@ -34,7 +34,7 @@ class BitFlippingEnv(wrapper_base.Wrapper):
         return self.env.compute_reward
 
 
-class _BitFlippingEnv(gym.GoalEnv):
+class _BitFlippingEnv(gym.Env):
     """
     Simple bit flipping env, useful to test HER.
     The goal is to flip all the bits to get a vector of ones.
@@ -130,23 +130,24 @@ class _BitFlippingEnv(gym.GoalEnv):
         else:
             self.state[action] = 1 - self.state[action]
         obs = self._get_obs()
-        reward = self.compute_reward(obs["achieved_goal"], obs["desired_goal"], None)
-        done = reward == 0
+        reward, done = self.compute_reward(obs["achieved_goal"], obs["desired_goal"])
         self.current_step += 1
         # Episode terminate when we reached the goal or the max number of steps
         info = {}
-        if self.current_step >= self._max_episode_steps:
+        if self.current_step >= self.max_steps:
             done = True
             info['TimeLimit.truncated'] = True
         done = done or self.current_step >= self.max_steps
         return obs, reward, done, info
 
-    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, info):
+    def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray):
         # Deceptive reward: it is positive only when the goal is achieved
+        print(f"compute reward | shape | ag={np.shape(achieved_goal)} dg={np.shape(desired_goal)}")
+        mask = (achieved_goal == desired_goal).all()
         if self.discrete_obs_space:
-            reward = 0.0 if achieved_goal == desired_goal else -1.0
+            reward = 0.0 * mask + ((1.0 - mask) * -1.0)
         else:
-            reward = 0.0 if (achieved_goal == desired_goal).all() else -1.0
+            reward = 0.0 * mask + ((1.0 - mask) * -1.0)
         done = reward == 0
         return reward, done
 

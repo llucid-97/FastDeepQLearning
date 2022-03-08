@@ -9,13 +9,13 @@ from queue import Queue
 import torch
 from torch import nn, multiprocessing as mp, Tensor
 from torch.utils.tensorboard import SummaryWriter
-import pyjion
 
 # locals
 from .utils.common import soft_update, hard_update
 from .components import soft_actor_critic, encoder
 from franQ.Replay.wrappers import TorchDataLoader
 from franQ.Agent.conf import AgentConf, AttrDict
+from franQ.common_utils import PyjionJit
 
 TensorDict = T.Dict[str, Tensor]
 
@@ -23,7 +23,6 @@ TensorDict = T.Dict[str, Tensor]
 class DeepQLearning(nn.Module):
     def __init__(self, conf: AgentConf, **kwargs):
         nn.Module.__init__(self)
-        pyjion.enable()
 
         conf: AgentConf = conf if isinstance(conf, AttrDict) else AttrDict(conf)
         self.conf = conf
@@ -35,8 +34,13 @@ class DeepQLearning(nn.Module):
         self._define_model()
 
         if kwargs.get("train_process", False):
-            self._initialize_trainer_members(kwargs["replays"])
-            self._infinite_loop_for_async_training_process()
+            try:
+                self._initialize_trainer_members(kwargs["replays"])
+                self._infinite_loop_for_async_training_process()
+            except Exception as e:
+                import traceback, warnings
+                traceback.print_exc()
+                warnings.warn("[Trainer Crashed]")
 
     def _define_model(self):
         conf = self.conf
@@ -81,11 +85,12 @@ class DeepQLearning(nn.Module):
         Thread(target=self._push_params, args=[dump_q]).start()
 
         # actual infinite loop[
-        for step_train in itertools.count():
-            self.train_step()
-            if (step_train % self.conf.param_update_interval) == 0:
-                # Signal the _push_params thread that we've updated enough times to warrant a push
-                if dump_q.empty(): dump_q.put_nowait(None)
+        with PyjionJit():
+            for step_train in itertools.count():
+                self.train_step()
+                if (step_train % self.conf.param_update_interval) == 0:
+                    # Signal the _push_params thread that we've updated enough times to warrant a push
+                    if dump_q.empty(): dump_q.put_nowait(None)
 
     def _initialize_trainer_members(self, replays):
         conf = self.conf
@@ -117,18 +122,18 @@ class DeepQLearning(nn.Module):
         return self.fast_params
 
     def _push_params(self, q: Queue):
-        pyjion.enable()
-        while True:
-            _ = q.get()
-            state_dict = self.state_dict()
-            state_dict = OrderedDict({k: v.to("cpu:0") for k, v in state_dict.items()})
-            self.param_queue.put(state_dict)
+        with PyjionJit():
+            while True:
+                _ = q.get()
+                state_dict = self.state_dict()
+                state_dict = OrderedDict({k: v.to("cpu:0") for k, v in state_dict.items()})
+                self.param_queue.put(state_dict)
 
     def _pull_params(self):
-        pyjion.enable()
-        while True:
-            params = self.param_queue.get()
-            self.load_state_dict(params), logging.info("loaded state dict")
+        with PyjionJit():
+            while True:
+                params = self.param_queue.get()
+                self.load_state_dict(params), logging.info("loaded state dict")
 
     @staticmethod
     def dict_to(state_dict: OrderedDict, device=None):
@@ -183,18 +188,19 @@ class DeepQLearning(nn.Module):
             curr_xp, next_xp = self._temporal_difference_shift(experience)
         return curr_xp, next_xp
 
-    def get_losses(self, experience: TensorDict):
-        experience["mask"] = torch.logical_not(experience["task_done"])
-        is_contiguous = experience["episode_step"][1:] == (experience["episode_step"][:-1] + 1)
+    def get_losses(self, xp: TensorDict):
+        xp["mask"] = torch.logical_not(xp["task_done"])
+        is_contiguous = xp["episode_step"][1:] == (xp["episode_step"][:-1] + 1)
+        is_contiguous *= xp["mask"][:-1]
         with torch.no_grad():
             # Convert discrete actions to 1-hot encoding
             if self.conf.discrete:
-                experience["action_onehot"] = torch.eye(
+                xp["action_onehot"] = torch.eye(
                     self.conf.action_space.n,
-                    device=experience["action"].device, dtype=experience["action"].dtype
-                )[experience["action"].view(experience["action"].shape[:-1]).long()]
+                    device=xp["action"].device, dtype=xp["action"].dtype
+                )[xp["action"].view(xp["action"].shape[:-1]).long()]
 
-        curr_xp, next_xp = self._get_encodings_training(experience)
+        curr_xp, next_xp = self._get_encodings_training(xp)
 
         q_loss, bootstrapped_lowerbound_loss, q_summaries = self.actor_critic.q_loss(curr_xp, next_xp)
         pi_loss, alpha_loss, pi_summaries = self.actor_critic.actor_loss(curr_xp)
@@ -229,7 +235,6 @@ class DeepQLearning(nn.Module):
         return curr_state, next_state
 
     def save(self, logdir):
-        pyjion.enable()
         logdir = Path(logdir)
         logdir.mkdir(parents=True, exist_ok=True)
 
@@ -240,7 +245,6 @@ class DeepQLearning(nn.Module):
 
     @staticmethod
     def load_from_file(logdir):
-        pyjion.enable()
         logdir = Path(logdir)
 
         conf = torch.load(logdir / "conf.tch")

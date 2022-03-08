@@ -1,13 +1,60 @@
 import time
 import time as _time
+from autoslot import Slots
 
 _time.clock = time.time
-try:
-    import pyjion
 
-    pyjion.enable()
-except ImportError:
-    pass
+
+class PyjionJit:
+    """A configurable decorator and context manager for pyjion to make it easy to use or not to use :)"""
+    GLOBAL_ENABLE = True
+
+    def __init__(self, func=None, *, exclude=False):
+        self.func = func
+        self.exclude = exclude
+
+        if self.func is not None:
+            import functools
+            functools.update_wrapper(self, self.func)
+
+    @staticmethod
+    def wrapper(self, *args, **kwargs):
+        with self:
+            value = self.func(*args, **kwargs)
+        return value
+
+    def __call__(self, *args, **kwargs):
+
+        if self.func is None:
+            # @PyjionJit(**kwargs) case
+            self.func = args[0]  # no func args in init. So func is getting put here during decorator call
+            # import functools
+            # functools.update_wrapper(self.wrapper, self.func)
+            return self.wrapper  # wrapper gets func from member
+        else:
+            # @PyjionJit case
+            # @decorator has already been called and put the functor in self.func
+            # this call is the wrapper
+            return self.wrapper(*args, **kwargs)
+
+    def __enter__(self):
+        if not self.GLOBAL_ENABLE:
+            return
+        import pyjion
+        if self.exclude:
+            self.prior_state = pyjion.enable()
+            pyjion.disable()
+        else:
+            pyjion.enable()
+
+    def __exit__(self, *args):
+        if not self.GLOBAL_ENABLE:
+            return
+        import pyjion
+        if self.exclude:
+            pyjion.enable()  # we're assuming here that the only reason you'd use the ex
+        else:
+            pyjion.disable()
 
 
 class AttrDict(dict):
@@ -47,15 +94,12 @@ def time_stamp_str():  # generate a timestamp used for logging
     return datetime.datetime.now().strftime("%Y-%m-%d___%H-%M-%S")
 
 
-class TimerTB:
+class Timer():
     """Scope timer that prints to SummaryWriter"""
     CLASS_ENABLE_SWITCH = True  # a kill switch to conveniently enable/disable logging in 1 central place
 
-    def __init__(self, writer, name, group="Timers", step=None, force_enable=False):
-        from torch.utils.tensorboard import SummaryWriter
-        self.writer: SummaryWriter = writer
-        self.group, self.name, self.step = group, name, step
-        self.force_enable = force_enable
+    def __init__(self, name, ):
+        self.name = name
 
     def __enter__(self, ):
         self.start = _time.clock()
@@ -63,6 +107,24 @@ class TimerTB:
     def __exit__(self, *args):
         self.end = _time.clock()
         self.interval = self.end - self.start
+        self.print_fn()
+
+    def print_fn(self):
+        if self.CLASS_ENABLE_SWITCH:
+            print(f"[Timer] {self.name} took {self.interval}s")
+
+
+class TimerTB(Timer):
+    """Scope timer that prints to SummaryWriter"""
+
+    def __init__(self, writer, name, group="Timers", step=None, force_enable=False):
+        from torch.utils.tensorboard import SummaryWriter
+        self.writer: SummaryWriter = writer
+        self.group, self.step = group, step
+        self.force_enable = force_enable
+        super().__init__(name)
+
+    def print_fn(self):
         if self.CLASS_ENABLE_SWITCH or self.force_enable:
             self.writer.add_scalars(self.group, {self.name: self.interval}, self.step)
 
@@ -76,9 +138,3 @@ class LeakyIntegrator:
     def __call__(self, x):
         self.leaky_x = (self.gamma * self.leaky_x) + ((1 - self.gamma) * x)
         return self.leaky_x
-
-
-try:
-    pyjion.disable()
-except:
-    pass

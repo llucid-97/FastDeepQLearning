@@ -1,8 +1,3 @@
-if __name__ == '__main__':
-
-    import pyjion
-
-    pyjion.enable()
 from franQ.common_utils import AttrDict
 from franQ import Env, Agent
 import multiprocessing as mp

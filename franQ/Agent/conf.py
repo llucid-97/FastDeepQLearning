@@ -35,7 +35,7 @@ class AgentConf(AttrDict):
         self.clip_grad_norm = 20
 
         # Algo and components
-        self.use_squashed_rewards = True  # Apply pohlen transform [arXiv:1805.11593] to reduce variance and stabilize training
+        self.use_squashed_rewards = False  # Apply pohlen transform [arXiv:1805.11593] to reduce variance and stabilize training
         self.use_hard_updates = False  # False-> Use polyak averaging for target networks. True-> Periodic hard updates
         self.use_target_encoder = False
 
@@ -43,7 +43,8 @@ class AgentConf(AttrDict):
         self.nStep_return_steps = 1000
         self.use_max_entropy_q = True  # Intrinsic reward for random behavior while still following objective [https://arxiv.org/abs/1812.11103]
         self.use_HER = False # Hindsight replay
-        self.her_mode = "final"  # final | random
+        self.her_mode = "final"  # final | random | vectorized
+
         self.use_distributional_sac = True # Model quantile distribution of Q function
 
         # SAC hyperparams
