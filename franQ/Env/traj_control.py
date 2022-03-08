@@ -6,7 +6,7 @@ import gym
 spaces = gym.spaces
 from franQ.Env.wrappers import wrapper_base, common
 from franQ.Env.conf import EnvConf
-from py_ics.Environments import TrajConFactory
+from py_ics.gym_custom.envs import JPTrajConFactory
 
 
 class TrajControlWrapper(wrapper_base.Wrapper):
@@ -16,7 +16,7 @@ class TrajControlWrapper(wrapper_base.Wrapper):
 
 
         if conf.env_specific_config is None:
-            factory = py_ics.Environments.TrajConFactory()
+            factory = JPTrajConFactory()
         else:
             factory = conf.env_specific_config
 
@@ -59,7 +59,7 @@ if __name__ == '__main__':
         conf = EnvConf()
         conf.name = "TrajControl-v0"
         conf.log_dir = './logs'
-        factory = TrajConFactory()
+        factory = JPTrajConFactory()
         factory.time_limit = int(1e6)
         factory.level = 0
         factory.residual = True

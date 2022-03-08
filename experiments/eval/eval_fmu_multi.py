@@ -35,7 +35,7 @@ def main(eval_dir):
 
     global_conf.update(agent_conf)
 
-    factory = py_ics.Environments.TrajConFactory()
+    factory = py_ics.gym_custom.envs.JPTrajConFactory()
     factory.log_state_to_tensorboard_on_each_time_step = True
     factory.use_potential_based_rewards = False
     factory.use_product_reward_components = True
@@ -58,5 +58,5 @@ def main(eval_dir):
 if __name__ == '__main__':
     mp.set_start_method("spawn", force=True)
     main(
-        r"D:\projects\FastDeepQLearning\experiments\logs\2022-02-08___22-30-49traj_control_traj_control-v1"
+        r"D:\projects\ics\python_ai4ics\py_ics\repos\fastdeepqlearning\experiments\logs\2022-02-22___12-12-18traj_control_traj_control-v1"
     )
