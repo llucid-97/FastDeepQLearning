@@ -33,11 +33,13 @@ class TrajControlWrapper(wrapper_base.Wrapper):
         assert conf.log_dir is not None
         factory.log_dir = conf.log_dir
         self.factory = factory
-        self._init_actual()
+        self._init_actual(conf)
 
-    def _init_actual(self):
+    def _init_actual(self,conf:EnvConf):
         env = self.factory.make_env()
         env = common.NormalizeActions(env)
+        if conf.frame_stack_conf.enable:
+            env = common.FrameStack(env,k=conf.frame_stack_conf.num_frames)
         env = common.ObsDict(env, default_key="obs_1d")
         super().__init__(env)
 

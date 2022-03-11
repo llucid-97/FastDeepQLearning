@@ -12,16 +12,19 @@ cv2.ocl.setUseOpenCL(False)
 
 
 class FrameStack(Wrapper):
-    def __init__(self, env, k):
+    def __init__(self, env, k, exponential=False):
         """Stack k last frames."""
         Wrapper.__init__(self, env)
+        if exponential: k = int(np.floor(np.log2(k)) ** 2) + 1
         self.k = k
+        self.exponential = exponential
+        self.exponential_idxes = (2 ** np.arange(1+np.floor(np.log2(k)))).astype(int)-1
         self.frames = deque([], maxlen=k)
 
         shp = env.observation_space.shape
         self.observation_space = spaces.Box(
-            low=0,
-            high=255,
+            low=np.min(env.observation_space.low),
+            high=np.max(env.observation_space.high),
             shape=(shp[:-1] + (shp[-1] * k,)),
             dtype=env.observation_space.dtype,
         )
@@ -41,6 +44,8 @@ class FrameStack(Wrapper):
 
     def _get_ob(self):
         assert len(self.frames) == self.k
+        if self.exponential:
+            return np.concatenate(np.asarray(self.frames)[self.exponential_idxes], axis=-1)
         return np.concatenate(list(self.frames), axis=-1)
 
 
@@ -117,13 +122,14 @@ class ObsDict(ObservationWrapper):
     def observation(self, observation):
         return {self._key: observation}
 
+
 class ObsDictRenameKey(ObservationWrapper):
     """Renames a key for an obs dict"""
 
-    def __init__(self, env, old_name="observation",new_name="obs_1d"):
+    def __init__(self, env, old_name="observation", new_name="obs_1d"):
         super(ObsDictRenameKey, self).__init__(env)
         old_obs_space = env.observation_space
-        assert isinstance(old_obs_space,gym.spaces.Dict)
+        assert isinstance(old_obs_space, gym.spaces.Dict)
         import copy
         new_obs_space = copy.deepcopy(old_obs_space)
         new_obs_space.spaces[new_name] = new_obs_space.spaces.pop(old_name)
@@ -132,9 +138,10 @@ class ObsDictRenameKey(ObservationWrapper):
         self.old_name = old_name
         self.new_name = new_name
 
-    def observation(self, observation:dict):
+    def observation(self, observation: dict):
         observation[self.new_name] = observation.pop(self.old_name)
         return observation
+
 
 class RewardObs(Wrapper):
     """Make the reward part """

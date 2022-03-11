@@ -1,6 +1,6 @@
 from franQ.common_utils import AttrDict
 import typing as T
-
+from dataclasses import dataclass
 
 class EnvConf(AttrDict):
     def __init__(self):
@@ -15,3 +15,11 @@ class EnvConf(AttrDict):
         self.monitor = False # If enabled, captures a video of the rollouts using the render and ffmpeg
         self.artefact_root: T.Optional[str] = None
         self.env_specific_config = None
+
+        self.frame_stack_conf = FrameStackConf()
+
+@dataclass
+class FrameStackConf:
+    enable = False
+    exponential_mode = False
+    num_frames = 4
