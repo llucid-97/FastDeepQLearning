@@ -41,9 +41,12 @@ class SoftActorCritic(nn.Module):
         self.curr_alpha = np.exp(self.log_alpha.item())
         self.target_entropy = -(conf.action_space.n if conf.discrete else np.product(conf.action_space.shape).item())
 
-        self._fast_params = (list(self.actor.parameters()) +
-                             list(self.critic.parameters()) +
-                             [self.log_alpha])
+        self.param_dict: T.Dict[str, T.List[torch.Tensor]] = {}
+        self.param_dict["actor"] = list(self.actor.parameters())
+        self.param_dict["critic"] = list(self.critic.parameters())
+        self.param_dict["log_alpha"] = [self.log_alpha]
+
+        self._fast_params = sum(self.param_dict.values(), start=[])
 
     def parameters(self, *args, **kwargs):  # get trainable parameters
         return self._fast_params

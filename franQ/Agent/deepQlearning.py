@@ -45,11 +45,13 @@ class DeepQLearning(nn.Module):
     def _define_model(self):
         conf = self.conf
         self.fast_params = []
+        self.param_dict = {}
         # Models
 
         # Default encoder type
         self.encoder = encoder.Encoder(conf.obs_space, conf.latent_state_dim, conf.encoder_conf)
         self.fast_params += list(self.encoder.parameters())
+        self.param_dict["encoder"] = self.encoder.param_dict
 
         if conf.use_distributional_sac:
             from .components.distributional_soft_actor_critic import DistributionalSoftActorCritic
@@ -57,6 +59,7 @@ class DeepQLearning(nn.Module):
         else:
             self.actor_critic = soft_actor_critic.SoftActorCritic(conf, conf.latent_state_dim)
         self.fast_params += list(self.actor_critic.parameters())
+        self.param_dict["actor_critic"] = self.actor_critic.param_dict
 
     def enable_training(self, replays):
         conf = self.conf
@@ -106,7 +109,18 @@ class DeepQLearning(nn.Module):
 
             [o.zero_grad() for o in self.optimizers]
             task_loss.backward()
-            nn.utils.clip_grad_norm_(self.parameters(), self.conf.clip_grad_norm)
+
+            # More expensive logging should happen less frequently
+            if (self.conf.global_step.value % (self.conf.log_interval * 4)) == 0:
+                # Gradient norms
+                for k in self.param_dict:
+                    for k2 in self.param_dict[k]:
+                        self.summary_writer.add_scalars(
+                            f"GradNorms/{k}_{k2}",
+                            {str(i): p.grad.norm() for i, p in enumerate(self.param_dict[k][k2])},
+                            self.conf.global_step.value
+                        )
+            nn.utils.clip_grad_value_(self.parameters(), self.conf.clip_grad_norm)
             [o.step() for o in self.optimizers]
             self.update_targets()
             self.reset()
@@ -188,7 +202,7 @@ class DeepQLearning(nn.Module):
             bootstrapped_lowerbound_loss = (bootstrapped_lowerbound_loss * xp["is_contiguous"].prod(0)).mean()
             loss = loss + bootstrapped_lowerbound_loss
 
-        # Step 11: Write Scalars
+        # Logging metrics && debug info to tensorboard
         step = self.conf.global_step.value
         if (step % self.conf.log_interval) == 0:
             assert q_loss.shape == pi_loss.shape == xp["is_contiguous"].shape == alpha_loss.shape, \
@@ -206,6 +220,8 @@ class DeepQLearning(nn.Module):
                  "max": xp["is_contiguous"].float().sum(axis=0).max(axis=0)[0] / self.conf.temporal_len,
                  "min": xp["is_contiguous"].float().sum(axis=0).min(axis=0)[0] / self.conf.temporal_len,
                  }, step)
+
+
 
         return loss / self.conf.temporal_len
 

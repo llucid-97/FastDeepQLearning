@@ -34,7 +34,7 @@ class AgentConf(AttrDict):
         self.batch_size = 256
         self.replay_size = int(5e4)
         self.temporal_len = 50  # Note: this implicitly applies temoral consistency loss (Pohlen et al 2018)
-        self.clip_grad_norm = 20
+        self.clip_grad_norm = 5e-3
 
         # Algo and components
         self.use_squashed_rewards = False  # Apply pohlen transform [arXiv:1805.11593] to reduce variance and stabilize training
@@ -72,7 +72,6 @@ class AgentConf(AttrDict):
         # ^^^^^^^^^^^^^^^^^^^^^^ API V4 Components
         self.use_decoder = False  # Map latent space back to obs space (for visualization only)
         self.use_hsv_data_augmentation = False  # Use standard vision data augmentation tricks on hsv images
-        self.use_strided_rnn = False
 
 
 @dataclass
@@ -84,7 +83,8 @@ class EncoderConf:
 
     class ModeEnum(Enum):
         feedforward = 1
-        rnn = 2
         gru = 3
 
     mode = ModeEnum.feedforward
+    use_weight_norm_obs = False
+    use_weight_norm_joiner = False

@@ -25,7 +25,7 @@ def main():
 
     # NOTE: Fewer layers ===> Faster training.
     agent_conf.encoder_conf.enc1d_hidden_dims = []
-    agent_conf.encoder_conf.mode = agent_conf.encoder_conf.ModeEnum.rnn
+    agent_conf.encoder_conf.mode = agent_conf.encoder_conf.ModeEnum.gru
     agent_conf.encoder_conf.joint_hidden_dims = 256,
 
     agent_conf.pi_hidden_dims = [256]
