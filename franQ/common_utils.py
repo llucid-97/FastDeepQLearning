@@ -7,7 +7,7 @@ _time.clock = time.time
 
 class PyjionJit:
     """A configurable decorator and context manager for pyjion to make it easy to use or not to use :)"""
-    GLOBAL_ENABLE = True
+    GLOBAL_ENABLE = False
 
     def __init__(self, func=None, *, exclude=False):
         self.func = func
@@ -117,16 +117,18 @@ class Timer():
 class TimerTB(Timer):
     """Scope timer that prints to SummaryWriter"""
 
-    def __init__(self, writer, name, group="Timers", step=None, force_enable=False):
+    def __init__(self, writer, name, group="Timers", step=None, force_enable=False, log_every=50):
         from torch.utils.tensorboard import SummaryWriter
         self.writer: SummaryWriter = writer
         self.group, self.step = group, step
         self.force_enable = force_enable
+        self.log_every = log_every
         super().__init__(name)
 
     def print_fn(self):
         if self.CLASS_ENABLE_SWITCH or self.force_enable:
-            self.writer.add_scalars(self.group, {self.name: self.interval}, self.step)
+            if (self.step is not None) and (0 == (self.step%self.log_every)):
+                self.writer.add_scalars(self.group, {self.name: self.interval}, self.step)
 
 
 class LeakyIntegrator:

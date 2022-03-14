@@ -48,9 +48,7 @@ class DeepQLearning(nn.Module):
         # Models
 
         # Default encoder type
-        self.encoder = encoder.Encoder(conf)
-        self.target_encoder = encoder.Encoder(conf) if conf.use_target_encoder else self.encoder
-        hard_update(self.target_encoder, self.encoder)
+        self.encoder = encoder.Encoder(conf.obs_space, conf.latent_state_dim, conf.encoder_conf)
         self.fast_params += list(self.encoder.parameters())
 
         if conf.use_distributional_sac:
@@ -148,50 +146,27 @@ class DeepQLearning(nn.Module):
                 self.train_step()
 
         with torch.no_grad():
-            latent_state = self.encoder.forward_eval(experiences)
-            explore_action, log_prob, exploit_action = self.actor_critic.act(latent_state)
+            encodings, hidden_state = self.encoder.forward_eval(experiences)
+            explore_action, log_prob, exploit_action = self.actor_critic.act(encodings)
             exploit_mask = experiences["exploit_mask"]
             action = (exploit_action * exploit_mask) + (explore_action * torch.logical_not(exploit_mask))
 
             # if self.conf.discrete: action = action.argmax(-1, True)  # go from one-hot encoding to sparse
-            return action
+            return action, hidden_state
 
+    def get_random_hidden(self):
+        return self.encoder.get_random_hidden()
     def reset(self):
         self.encoder.reset()
 
     def update_targets(self):
-        if self.conf.use_hard_updates:
-            # hard updates should only be done once every N steps.
-            if self.conf.global_step.value % self.conf.hard_update_interval: return
-            update = hard_update
-        else:
-            update = soft_update
         self.actor_critic.update_target()
-        if self.conf.use_target_encoder:
-            update(self.target_encoder, self.encoder, self.conf.tau)
-
-    def _get_encodings_training(self, experience: TensorDict):
-        enc_kwargs = {
-            # "is_contiguous": is_contiguous,
-            "sequence_len": self.conf.temporal_len,
-            "batch_size": self.conf.batch_size
-        }
-        if self.conf.use_target_encoder:
-            # Split then run both
-            curr_xp, next_xp = self._temporal_difference_shift(experience)
-            curr_xp["state"] = self.encoder.forward_train(curr_xp, **enc_kwargs)
-            with torch.no_grad():
-                next_xp["state"] = self.target_encoder.forward_train(next_xp, **enc_kwargs)
-        else:
-            # Run on all then split
-            experience["state"] = self.encoder.forward_train(experience, **enc_kwargs)
-            curr_xp, next_xp = self._temporal_difference_shift(experience)
-        return curr_xp, next_xp
 
     def get_losses(self, xp: TensorDict):
         xp["mask"] = torch.logical_not(xp["task_done"])
-        is_contiguous = xp["episode_step"][1:] == (xp["episode_step"][:-1] + 1)
-        is_contiguous *= xp["mask"][:-1]
+
+        xp["is_contiguous"] = xp["episode_step"][1:] == (xp["episode_step"][:-1] + 1)
+        xp["is_contiguous"] *= xp["mask"][:-1]
         with torch.no_grad():
             # Convert discrete actions to 1-hot encoding
             if self.conf.discrete:
@@ -200,21 +175,23 @@ class DeepQLearning(nn.Module):
                     device=xp["action"].device, dtype=xp["action"].dtype
                 )[xp["action"].view(xp["action"].shape[:-1]).long()]
 
-        curr_xp, next_xp = self._get_encodings_training(xp)
+        # Run on all then split
+        xp["state"] = self.encoder.forward_train(xp)
+        curr_xp, next_xp = self._temporal_difference_shift(xp)
 
         q_loss, bootstrapped_lowerbound_loss, q_summaries = self.actor_critic.q_loss(curr_xp, next_xp)
         pi_loss, alpha_loss, pi_summaries = self.actor_critic.actor_loss(curr_xp)
 
-        loss = ((q_loss + pi_loss + alpha_loss) * is_contiguous).mean()  # Once its recurrent, they all use TD
+        loss = ((q_loss + pi_loss + alpha_loss) * xp["is_contiguous"]).mean()  # Once its recurrent, they all use TD
         if self.conf.use_bootstrap_minibatch_nstep:
-            bootstrapped_lowerbound_loss = (bootstrapped_lowerbound_loss * is_contiguous.prod(0)).mean()
+            bootstrapped_lowerbound_loss = (bootstrapped_lowerbound_loss * xp["is_contiguous"].prod(0)).mean()
             loss = loss + bootstrapped_lowerbound_loss
 
         # Step 11: Write Scalars
         step = self.conf.global_step.value
         if (step % self.conf.log_interval) == 0:
-            assert q_loss.shape == pi_loss.shape == is_contiguous.shape == alpha_loss.shape, \
-                f"loss shape mismatch: q={q_loss.shape} pi={pi_loss.shape} c={is_contiguous.shape} a={alpha_loss.shape}"
+            assert q_loss.shape == pi_loss.shape == xp["is_contiguous"].shape == alpha_loss.shape, \
+                f"loss shape mismatch: q={q_loss.shape} pi={pi_loss.shape} c={xp['is_contiguous'].shape} a={alpha_loss.shape}"
             self.summary_writer.add_scalars("Trainer/RL_Loss", {"Critic": q_loss.mean().item(),
                                                                 "Actor": pi_loss.mean().item(),
                                                                 "Alpha": alpha_loss.mean().item(), },
@@ -222,6 +199,7 @@ class DeepQLearning(nn.Module):
 
             [self.summary_writer.add_scalar(f"Trainer/Critic_{k}", v, step) for k, v in q_summaries.items()]
             [self.summary_writer.add_scalar(f"Trainer/Actor_{k}", v, step) for k, v in pi_summaries.items()]
+            self.summary_writer.add_scalar(f"Trainer/Valid_Portion", xp["is_contiguous"].float().mean(), step)
 
         return loss / self.conf.temporal_len
 

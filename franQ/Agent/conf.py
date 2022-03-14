@@ -1,6 +1,8 @@
 from pathlib import Path
 from franQ.common_utils import AttrDict
 from torch import multiprocessing as mp
+from dataclasses import dataclass
+from enum import Enum
 
 
 class AgentConf(AttrDict):
@@ -14,7 +16,7 @@ class AgentConf(AttrDict):
         self.discrete = None
         self.global_step = mp.Value("i", 0)
         # environment keys required to run inference
-        self.inference_input_keys = "obs_1d", "obs_2d", "idx", "achieved_goal", "desired_goal"
+        self.inference_input_keys = "obs_1d", "obs_2d", "idx", "achieved_goal", "desired_goal", "agent_state"
 
         # devices
         import torch
@@ -37,25 +39,24 @@ class AgentConf(AttrDict):
         # Algo and components
         self.use_squashed_rewards = False  # Apply pohlen transform [arXiv:1805.11593] to reduce variance and stabilize training
         self.use_hard_updates = False  # False-> Use polyak averaging for target networks. True-> Periodic hard updates
-        self.use_target_encoder = False
 
         self.use_nStep_lowerbounds = True  # Lowerbound on Q to speed up convergence [https://arxiv.org/abs/1611.01606]
         self.nStep_return_steps = 1000
         self.use_max_entropy_q = True  # Intrinsic reward for random behavior while still following objective [https://arxiv.org/abs/1812.11103]
-        self.use_HER = False # Hindsight replay
+        self.use_HER = False  # Hindsight replay
         self.her_mode = "final"  # final | random | vectorized
 
-        self.use_distributional_sac = True # Model quantile distribution of Q function
+        self.use_distributional_sac = True  # Model quantile distribution of Q function
 
         # SAC hyperparams
         self.init_log_alpha = -2  # starting point for entropy tuning
-        self.gamma = 0.99 # discount factor
+        self.gamma = 0.99  # discount factor
         self.learning_rate = 3e-4
-        self.tau = 5e-2 # soft target update rate for critic
-        self.hard_update_interval = 200 # hard update rate for critic
+        self.tau = 5e-2  # soft target update rate for critic
+        self.hard_update_interval = 200  # hard update rate for critic
 
+        self.encoder_conf = EncoderConf()
         # MLP Hidden Layer definitions
-        self.enc1d_hidden_dims = [256]
         self.pi_hidden_dims = [256]
         self.critic_hidden_dims = [256, 256]
 
@@ -72,3 +73,17 @@ class AgentConf(AttrDict):
         self.use_decoder = False  # Map latent space back to obs space (for visualization only)
         self.use_hsv_data_augmentation = False  # Use standard vision data augmentation tricks on hsv images
         self.use_strided_rnn = False
+
+
+@dataclass
+class EncoderConf:
+    hidden_features = 256  # output of encoder for each observation (before joining)
+    joint_hidden_dims = 256,  # hidden
+    obs_1d_hidden_dims = 256,
+    rnn_hidden_features = 256
+
+    class ModeEnum(Enum):
+        feedforward = 1
+        rnn = 2
+
+    mode = ModeEnum.feedforward

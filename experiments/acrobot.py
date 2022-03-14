@@ -23,7 +23,6 @@ def main():
     agent_conf.inference_device = "cpu"
     agent_conf.use_nStep_lowerbounds = True
     agent_conf.num_critics = 5
-    agent_conf.use_target_encoder = False
     # NOTE: Fewer layers ===> Faster training.
     agent_conf.enc1d_hidden_dims = []
     agent_conf.pi_hidden_dims = [256]

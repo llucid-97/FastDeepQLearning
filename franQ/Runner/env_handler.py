@@ -36,15 +36,14 @@ def env_handler(conf: T.Union[Agent.AgentConf, Env.EnvConf], idx,
                           "episode_done": False,
                           "task_done": False,
                           "idx": idx,
-                          "info": {}
+                          "info": {},
                           }
             experience.update(env.reset())
             for experience["episode_step"] in itertools.count():
-                with TimerTB(logger, f"Pipeline_Stall{idx}", group="timers/pipeline_stats",
-                             step=total_step):
-                    # Get action form agent
+
+                with TimerTB(logger, f"Pipeline_Stall{idx}", group="timers/pipeline_stats",step=total_step):
                     queue_put_experience.put(experience)
-                    action = queue_get_action.get()
+                    action, experience["agent_state"] = queue_get_action.get()
 
                 if experience["episode_done"]:
                     break

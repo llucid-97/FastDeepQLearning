@@ -70,10 +70,18 @@ class Runner:
                     while not self._queue_env_handler_to_agent_dataloader.empty():
                         requests.append(self._queue_env_handler_to_agent_dataloader.get())
 
+
+
+                    # Handle passing hidden state here
+                    for r in requests:
+                        if "agent_state" not in r:
+                            agent_state = self.agent.get_random_hidden()
+                            if agent_state is not None:
+                                r["agent_state"] = agent_state
+
                     if inference_keys is None:
                         # Select ONLY the keys needed for agent inference. They are the same each cycle.
                         inference_keys = [k for k in self.conf.inference_input_keys if k in requests[0]]
-
                     # Batch the data for inference & copy to inference_device
                     batch: T.Dict[str, Tensor] = {
                         k: torch.stack([torch.tensor(xp[k], dtype=self.conf.dtype, device=self.conf.inference_device)
@@ -96,26 +104,28 @@ class Runner:
                 batch, xp_dict_list = self._queue_agent_dataloader_to_agent_handler.get()
 
                 with TimerTB(logger, "_agent_handler", group="timers/runner", step=step):
-                    actions = self.agent.act(batch)
-                    self._queue_agent_handler_to_env_dataloader.put((actions, xp_dict_list))
+                    actions, hidden_state = self.agent.act(batch)
+                    self._queue_agent_handler_to_env_dataloader.put((actions, hidden_state, xp_dict_list))
 
     def _env_dataloader(self):
         """Pipeline Stage: Asynchronously copies action from Inference_device to cpu and sends it to env and replay"""
         with PyjionJit():
             logger = SummaryWriter(Path(self.conf.log_dir) / "Runner_DataUnloader")
             for step in itertools.count():
-                actions, xp_dict_list = self._queue_agent_handler_to_env_dataloader.get()
+                actions, hidden_state, xp_dict_list = self._queue_agent_handler_to_env_dataloader.get()
                 with TimerTB(logger, "_env_dataloader", group="timers/runner", step=step):
                     actions: Tensor = actions.cpu().numpy()
-
                     assert actions.shape[0] == len(xp_dict_list)
                     # logger.add_scalar("Env/inference_batch_size", len(xp_dict_list), step)
-
+                    if hidden_state is not None:
+                        hidden_state = hidden_state.cpu().numpy()
                     for i in range(len(xp_dict_list)):
                         # route responses to experience dicts for right envs in list of exp dicts
                         action = actions[i]
                         env_idx = xp_dict_list[i]["idx"]
                         xp_dict_list[i]["action"] = action
+                        if hidden_state is not None:
+                            xp_dict_list[i]["agent_state"] = hidden_state[i]
 
                         # push experience dicts to appropriate replay memories.
                         if self._queue_to_replay_handler is not None:
@@ -125,20 +135,23 @@ class Runner:
 
                         # push actions to env
                         if self.conf.discrete: action = action.item()
-                        self._queue_to_environment_handler[env_idx].put(action)
+                        self._queue_to_environment_handler[env_idx].put((action,hidden_state[i]))
 
     def _replay_handler(self, idx):
         """Pipeline Stage: Asynchronously performs transformations before storing to replay.
         Transformations must be defined as replay wrappers in init"""
 
         logger = SummaryWriter(Path(self.conf.log_dir) / f"Runner_replay_{idx}")
-        for step in itertools.count():
-            experience_dict: dict = self._queue_to_replay_handler[idx].get()
-            if not self.conf.use_HER:
-                del experience_dict["info"]
 
+        for step in itertools.count():
+            xp: dict = self._queue_to_replay_handler[idx].get()
+            if not self.conf.use_HER:
+                del xp["info"]
+
+            if "agent_state" in xp:
+                del xp["agent_state"]
             with TimerTB(logger, f"ReplayTransforms_{idx}", group="timers/runner", step=step):
-                self.replay_shards[idx].add(experience_dict)
+                self.replay_shards[idx].add(xp)
 
     def _ranker(self, leaderboard_size=10):
         with PyjionJit():
