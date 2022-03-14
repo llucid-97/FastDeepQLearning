@@ -85,5 +85,6 @@ class EncoderConf:
     class ModeEnum(Enum):
         feedforward = 1
         rnn = 2
+        gru = 3
 
     mode = ModeEnum.feedforward

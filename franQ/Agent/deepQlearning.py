@@ -156,6 +156,7 @@ class DeepQLearning(nn.Module):
 
     def get_random_hidden(self):
         return self.encoder.get_random_hidden()
+
     def reset(self):
         self.encoder.reset()
 
@@ -199,7 +200,12 @@ class DeepQLearning(nn.Module):
 
             [self.summary_writer.add_scalar(f"Trainer/Critic_{k}", v, step) for k, v in q_summaries.items()]
             [self.summary_writer.add_scalar(f"Trainer/Actor_{k}", v, step) for k, v in pi_summaries.items()]
-            self.summary_writer.add_scalar(f"Trainer/Valid_Portion", xp["is_contiguous"].float().mean(), step)
+            self.summary_writer.add_scalars(
+                f"Trainer/Valid_Portion",
+                {"mean": xp["is_contiguous"].float().mean(),
+                 "max": xp["is_contiguous"].float().sum(axis=0).max(axis=0)[0] / self.conf.temporal_len,
+                 "min": xp["is_contiguous"].float().sum(axis=0).min(axis=0)[0] / self.conf.temporal_len,
+                 }, step)
 
         return loss / self.conf.temporal_len
 

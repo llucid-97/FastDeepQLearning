@@ -37,6 +37,9 @@ class Encoder(nn.Module):
         elif conf.mode == conf.ModeEnum.rnn:
             self.joiner = nn.RNN(latent_dim, out_features, len(conf.joint_hidden_dims),
                                  nonlinearity='relu')
+        elif conf.mode == conf.ModeEnum.gru:
+            self.joiner = nn.GRU(latent_dim, out_features, len(conf.joint_hidden_dims),
+                                 nonlinearity='relu')
         else:
             raise ValueError(f"Unexpected value for {conf.mode}")
         self.mode = conf.mode
@@ -55,8 +58,8 @@ class Encoder(nn.Module):
         if self.mode == EncoderConf.ModeEnum.feedforward:
             y = self.joiner(encoder_outputs)
             hidden = None
-        elif self.mode == EncoderConf.ModeEnum.rnn:
-            y, hidden = self.joiner(encoder_outputs, obs["agent_state"])
+        elif self.mode in (EncoderConf.ModeEnum.rnn, EncoderConf.ModeEnum.gru):
+            y, hidden = self.joiner(encoder_outputs, obs.get("agent_state", None))
         return y, hidden
 
     def reset(self):
@@ -69,15 +72,13 @@ class Encoder(nn.Module):
         return y.squeeze_(0), hidden.squeeze_(0)
 
     def forward_train(self, x):
-        if self.mode == EncoderConf.mode.rnn:
+        if self.mode in (EncoderConf.mode.rnn, EncoderConf.mode.gru):
             x["is_contiguous"] = torch.cumprod(x["is_contiguous"], dim=0)
-        x["agent_state"] = None
-        y,h = self(x)
-        del x["agent_state"]
+        y, h = self(x)
         return y
 
     def get_random_hidden(self):
         if self.mode == EncoderConf.ModeEnum.feedforward:
             return None
-        elif self.mode == EncoderConf.ModeEnum.rnn:
+        elif self.mode in (EncoderConf.mode.rnn, EncoderConf.mode.gru):
             return torch.rand((self.out_features))
