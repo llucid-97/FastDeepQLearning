@@ -32,20 +32,15 @@ class Encoder(nn.Module):
             self.visible_layer_encoders["obs_1d"] = MLP(input_shape, conf.hidden_features, conf.obs_1d_hidden_dims)
             latent_dim += conf.hidden_features  # + input_shape
 
-        if conf.use_weight_norm_obs:
-            nn.utils.weight_norm(self)
-
+        self.mode = conf.mode
+        self.out_features = out_features
         if conf.mode == conf.ModeEnum.feedforward:
             self.joiner = MLP(latent_dim, out_features, conf.joint_hidden_dims)
         elif conf.mode == conf.ModeEnum.gru:
             self.joiner = nn.GRU(latent_dim, out_features, len(conf.joint_hidden_dims))
-            if conf.use_weight_norm_joiner:
-                for name in self.joiner._flat_weight_names:
-                    nn.utils.weight_norm(self.joiner, name)
+            self.hidden_state = torch.nn.Parameter(self.get_random_hidden(),requires_grad=True)
         else:
             raise ValueError(f"Unexpected value for {conf.mode}")
-        self.mode = conf.mode
-        self.out_features = out_features
 
 
         self.param_dict:typing.Dict[str,typing.List[torch.Tensor]]= {}
@@ -82,7 +77,11 @@ class Encoder(nn.Module):
     def forward_train(self, x):
         if self.mode == EncoderConf.mode.gru:
             x["is_contiguous"] = torch.cumprod(x["is_contiguous"], dim=0)
+        scalar_shape = x["is_contiguous"].shape
+        x["agent_state"] = self.hidden_state.view((1,1)+self.hidden_state.shape)
+        x["agent_state"] = x["agent_state"].repeat(1,scalar_shape[1],1)
         y, h = self(x)
+        del x["agent_state"]
         return y
 
     def get_random_hidden(self):

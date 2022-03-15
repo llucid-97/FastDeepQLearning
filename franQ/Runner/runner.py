@@ -148,8 +148,8 @@ class Runner:
             if not self.conf.use_HER:
                 del xp["info"]
 
-            if "agent_state" in xp:
-                del xp["agent_state"]
+            # if "agent_state" in xp:
+            #     del xp["agent_state"]
             with TimerTB(logger, f"ReplayTransforms_{idx}", group="timers/runner", step=step):
                 self.replay_shards[idx].add(xp)
 

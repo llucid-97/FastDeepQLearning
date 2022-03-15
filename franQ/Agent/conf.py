@@ -83,8 +83,6 @@ class EncoderConf:
 
     class ModeEnum(Enum):
         feedforward = 1
-        gru = 3
+        gru = 2
 
     mode = ModeEnum.feedforward
-    use_weight_norm_obs = False
-    use_weight_norm_joiner = False
