@@ -197,7 +197,9 @@ class DeepQLearning(nn.Module):
         q_loss, bootstrapped_lowerbound_loss, q_summaries = self.actor_critic.q_loss(curr_xp, next_xp)
         pi_loss, alpha_loss, pi_summaries = self.actor_critic.actor_loss(curr_xp)
 
-        loss = ((q_loss + pi_loss + alpha_loss) * xp["is_contiguous"]).mean()  # Once its recurrent, they all use TD
+        loss = ((q_loss + pi_loss + alpha_loss) * xp["is_contiguous"]) # Once its recurrent, they all use TD
+        loss = loss.sum(0) / (xp["is_contiguous"].float().sum(0) +1e-4) # for RNNs we need to normalize by sequence length else network is biased
+        loss = loss.mean()
         if self.conf.use_bootstrap_minibatch_nstep:
             bootstrapped_lowerbound_loss = (bootstrapped_lowerbound_loss * xp["is_contiguous"].prod(0)).mean()
             loss = loss + bootstrapped_lowerbound_loss
