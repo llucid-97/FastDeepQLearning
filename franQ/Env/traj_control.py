@@ -6,7 +6,7 @@ import gym
 spaces = gym.spaces
 from franQ.Env.wrappers import wrapper_base, common
 from franQ.Env.conf import EnvConf
-from py_ics.gym_custom.envs import JPTrajConFactory
+from py_ics.gym_env.envs import JPTrajConFactory
 
 
 class TrajControlWrapper(wrapper_base.Wrapper):

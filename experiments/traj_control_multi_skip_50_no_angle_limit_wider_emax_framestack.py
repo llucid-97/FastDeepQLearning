@@ -37,7 +37,7 @@ def main():
     agent_conf.replay_size = int(1e5)
     global_conf.update(agent_conf)
 
-    factory = py_ics.gym_custom.envs.JPTrajConFactory()
+    factory = py_ics.gym_env.envs.JPTrajConFactory()
     factory.use_potential_based_rewards = False
     factory.use_product_reward_components = True
     factory.use_cae_reward = False

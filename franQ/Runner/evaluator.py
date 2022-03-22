@@ -1,12 +1,5 @@
-import random, shutil, uuid, itertools, typing as T, copy
+import typing as T
 from threading import Thread
-from queue import Queue
-from pathlib import Path
-
-import numpy as np
-import torch
-from torch import Tensor
-from torch.utils.tensorboard import SummaryWriter
 
 from franQ import Env, Agent
 from franQ.common_utils import TimerTB
@@ -37,7 +30,7 @@ class Evaluator(Runner):
 
     def eval_agent(self, agent_path, num_episodes, seeds):
         print(f"evaluationg agent {agent_path}")
-        assert len(seeds)==self.conf.num_instances
+        assert len(seeds) == self.conf.num_instances
         self.agent = self.agent.load_from_file(agent_path)
         self.agent.to(self.conf.inference_device)
 
@@ -67,5 +60,3 @@ class Evaluator(Runner):
         accumulator_thread.join()
 
         return scores
-
-
