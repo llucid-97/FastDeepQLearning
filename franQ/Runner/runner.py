@@ -12,6 +12,7 @@ from franQ import Env, Replay, Agent
 from franQ.common_utils import TimerTB, PyjionJit
 from .env_handler import env_handler
 
+
 class Runner:
     """Manages the experiment: Handles interactions between agent, environment and replay memory"""
 
@@ -70,8 +71,6 @@ class Runner:
                     while not self._queue_env_handler_to_agent_dataloader.empty():
                         requests.append(self._queue_env_handler_to_agent_dataloader.get())
 
-
-
                     # Handle passing hidden state here
                     for r in requests:
                         if "agent_state" not in r:
@@ -113,6 +112,7 @@ class Runner:
             logger = SummaryWriter(Path(self.conf.log_dir) / "Runner_DataUnloader")
             for step in itertools.count():
                 actions, hidden_state, xp_dict_list = self._queue_agent_handler_to_env_dataloader.get()
+
                 with TimerTB(logger, "_env_dataloader", group="timers/runner", step=step):
                     actions: Tensor = actions.cpu().numpy()
                     assert actions.shape[0] == len(xp_dict_list)
@@ -129,19 +129,21 @@ class Runner:
 
                         # push experience dicts to appropriate replay memories.
                         if self._queue_to_replay_handler is not None:
-                            replay_copy = copy.deepcopy(
-                                xp_dict_list[i])  # copy to ensure no mutation as it is passed between threads
+                            replay_copy = copy.deepcopy(xp_dict_list[i])  # ensure no mutation between threads
                             self._queue_to_replay_handler[env_idx].put(replay_copy)
 
                         # push actions to env
                         if self.conf.discrete: action = action.item()
-                        self._queue_to_environment_handler[env_idx].put((action,hidden_state[i]))
+                        if hidden_state is None:
+                            self._queue_to_environment_handler[env_idx].put((action, None))
+                        else:
+                            self._queue_to_environment_handler[env_idx].put((action, hidden_state[i]))
 
     def _replay_handler(self, idx):
         """Pipeline Stage: Asynchronously performs transformations before storing to replay.
         Transformations must be defined as replay wrappers in init"""
 
-        logger = SummaryWriter(Path(self.conf.log_dir) / f"Runner_replay_{idx}")
+        logger = SummaryWriter(str(Path(self.conf.log_dir) / f"Runner_replay_{idx}"))
 
         for step in itertools.count():
             xp: dict = self._queue_to_replay_handler[idx].get()
@@ -178,5 +180,6 @@ class Runner:
                                 shutil.rmtree(metadata[c]["path"], ignore_errors=True)
                             del metadata[c]
 
-                    lstring = '\n'.join([f'{i} : {l:.2f} @ step ({self.conf.global_step.value})' for i, l in enumerate(leaderboard)])
+                    lstring = '\n'.join(
+                        [f'{i} : {l:.2f} @ step ({self.conf.global_step.value})' for i, l in enumerate(leaderboard)])
                     print(f"Top {leaderboard_size} scores: [\n{lstring}\n]")

@@ -72,17 +72,20 @@ class Encoder(nn.Module):
         for v in x.values(): v.unsqueeze_(0)
         y, hidden = self(x)
         for v in x.values(): v.squeeze_(0)
-        return y.squeeze_(0), hidden.squeeze_(0)
+        return y.squeeze_(0), hidden.squeeze_(0) if hidden is not None else hidden
 
     def forward_train(self, x):
         if self.mode == EncoderConf.mode.gru:
             x["is_contiguous"] = torch.cumprod(x["is_contiguous"], dim=0)
-        scalar_shape = x["is_contiguous"].shape
-        x["agent_state"] = self.hidden_state.view((1,1)+self.hidden_state.shape)
-        x["agent_state"] = x["agent_state"].repeat(1,scalar_shape[1],1)
-        y, h = self(x)
-        del x["agent_state"]
-        return y
+            scalar_shape = x["is_contiguous"].shape
+            x["agent_state"] = self.hidden_state.view((1,1)+self.hidden_state.shape)
+            x["agent_state"] = x["agent_state"].repeat(1,scalar_shape[1],1)
+            y, h = self(x)
+            del x["agent_state"]
+            return y
+        else:
+            y, h = self(x)
+            return y
 
     def get_random_hidden(self):
         if self.mode == EncoderConf.ModeEnum.feedforward:
