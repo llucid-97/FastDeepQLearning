@@ -1,6 +1,5 @@
 import time
 import time as _time
-from autoslot import Slots
 
 _time.clock = time.time
 

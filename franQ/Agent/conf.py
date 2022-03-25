@@ -77,12 +77,20 @@ class AgentConf(AttrDict):
 @dataclass
 class EncoderConf:
     hidden_features = 256  # output of encoder for each observation (before joining)
-    joint_hidden_dims = 256,  # hidden
-    obs_1d_hidden_dims = 256,
-    rnn_hidden_features = 256
+    joint_hidden_dims: tuple = 256,  # hidden dimensions for MLP that maps the concatenated embeddings to hidden state
+    obs_1d_hidden_dims: tuple = 256,  # hidden dimensions for MLP that maps vector observations to embeddings
 
-    class ModeEnum(Enum):
+    class JoinerModeEnum(Enum):
         feedforward = 1
         gru = 2
 
-    mode = ModeEnum.feedforward
+    joiner_mode = JoinerModeEnum.feedforward
+
+    class RnnLatentStateTrainMode(Enum):
+        zero = 0
+        store = 1
+        learned = 2
+
+    rnn_latent_state_training_mode = RnnLatentStateTrainMode.zero
+    use_burn_in = False
+    burn_in_portion = 0.2

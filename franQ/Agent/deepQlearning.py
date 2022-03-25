@@ -178,15 +178,16 @@ class DeepQLearning(nn.Module):
         self.actor_critic.update_target()
 
     def get_losses(self, xp: TensorDict):
+        conf = self.conf
+        seq_dim, batch_dim, *_ = xp["task_done"].shape
         xp["mask"] = torch.logical_not(xp["task_done"])
-
         xp["is_contiguous"] = xp["episode_step"][1:] == (xp["episode_step"][:-1] + 1)
         xp["is_contiguous"] *= xp["mask"][:-1]
         with torch.no_grad():
             # Convert discrete actions to 1-hot encoding
-            if self.conf.discrete:
+            if conf.discrete:
                 xp["action_onehot"] = torch.eye(
-                    self.conf.action_space.n,
+                    conf.action_space.n,
                     device=xp["action"].device, dtype=xp["action"].dtype
                 )[xp["action"].view(xp["action"].shape[:-1]).long()]
 
@@ -196,6 +197,9 @@ class DeepQLearning(nn.Module):
 
         q_loss, bootstrapped_lowerbound_loss, q_summaries = self.actor_critic.q_loss(curr_xp, next_xp)
         pi_loss, alpha_loss, pi_summaries = self.actor_critic.actor_loss(curr_xp)
+
+        if conf.encoder_conf.use_burn_in:
+            xp["is_contiguous"][:int(seq_dim * conf.encoder_conf.burn_in_portion)] = 0
 
         loss = ((q_loss + pi_loss + alpha_loss) * xp["is_contiguous"]) # Once its recurrent, they all use TD
         loss = loss.sum(0) / (xp["is_contiguous"].float().sum(0) +1e-4) # for RNNs we need to normalize by sequence length else network is biased

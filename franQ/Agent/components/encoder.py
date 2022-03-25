@@ -32,15 +32,16 @@ class Encoder(nn.Module):
             self.visible_layer_encoders["obs_1d"] = MLP(input_shape, conf.hidden_features, conf.obs_1d_hidden_dims)
             latent_dim += conf.hidden_features  # + input_shape
 
-        self.mode = conf.mode
+        self.conf = conf
+        self.mode = conf.joiner_mode
         self.out_features = out_features
-        if conf.mode == conf.ModeEnum.feedforward:
+        if conf.joiner_mode == conf.JoinerModeEnum.feedforward:
             self.joiner = MLP(latent_dim, out_features, conf.joint_hidden_dims)
-        elif conf.mode == conf.ModeEnum.gru:
+        elif conf.joiner_mode == conf.JoinerModeEnum.gru:
             self.joiner = nn.GRU(latent_dim, out_features, len(conf.joint_hidden_dims))
             self.hidden_state = torch.nn.Parameter(self.get_random_hidden(),requires_grad=True)
         else:
-            raise ValueError(f"Unexpected value for {conf.mode}")
+            raise ValueError(f"Unexpected value for {conf.joiner_mode}")
 
 
         self.param_dict:typing.Dict[str,typing.List[torch.Tensor]]= {}
@@ -58,10 +59,10 @@ class Encoder(nn.Module):
         encoder_outputs = [self.visible_layer_encoders[key](obs[key]) for key in
                            self.visible_layer_encoders]  # + ([obs["obs_1d"]] if "obs_1d" in obs else [])
         encoder_outputs = torch.cat(encoder_outputs, dim=-1)
-        if self.mode == EncoderConf.ModeEnum.feedforward:
+        if self.mode == EncoderConf.JoinerModeEnum.feedforward:
             y = self.joiner(encoder_outputs)
             hidden = None
-        elif self.mode == EncoderConf.ModeEnum.gru:
+        elif self.mode == EncoderConf.JoinerModeEnum.gru:
             y, hidden = self.joiner(encoder_outputs, obs.get("agent_state", None))
         return y, hidden
 
@@ -75,11 +76,19 @@ class Encoder(nn.Module):
         return y.squeeze_(0), hidden.squeeze_(0) if hidden is not None else hidden
 
     def forward_train(self, x):
-        if self.mode == EncoderConf.mode.gru:
+        conf = self.conf
+        if self.mode == EncoderConf.joiner_mode.gru:
             x["is_contiguous"] = torch.cumprod(x["is_contiguous"], dim=0)
             scalar_shape = x["is_contiguous"].shape
-            x["agent_state"] = self.hidden_state.view((1,1)+self.hidden_state.shape)
-            x["agent_state"] = x["agent_state"].repeat(1,scalar_shape[1],1)
+            if conf.rnn_latent_state_training_mode == conf.RnnLatentStateTrainMode.store:
+                x["agent_state"] = x["agent_state"][0].unsqueeze(0)
+            elif conf.rnn_latent_state_training_mode == conf.RnnLatentStateTrainMode.learned:
+                x["agent_state"] = self.hidden_state.view((1,1)+self.hidden_state.shape)
+                x["agent_state"] = x["agent_state"].repeat(1,scalar_shape[1],1)
+            elif conf.rnn_latent_state_training_mode == conf.RnnLatentStateTrainMode.zero:
+                x["agent_state"] = None
+            else:
+                raise ValueError(f"Expected {conf.rnn_latent_state_training_mode} to be one of{conf.RnnLatentStateTrainMode}")
             y, h = self(x)
             del x["agent_state"]
             return y
@@ -88,7 +97,7 @@ class Encoder(nn.Module):
             return y
 
     def get_random_hidden(self):
-        if self.mode == EncoderConf.ModeEnum.feedforward:
+        if self.mode == EncoderConf.JoinerModeEnum.feedforward:
             return None
-        elif self.mode == EncoderConf.mode.gru:
+        elif self.mode == EncoderConf.joiner_mode.gru:
             return torch.rand((self.out_features))

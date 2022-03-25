@@ -26,6 +26,7 @@ class TrajControlWrapper(wrapper_base.Wrapper):
             self.num_instances = conf.num_instances
             if conf.instance_tag is None:
                 import logging
+                logging.warning(__file__)
                 logging.warning("TrajControl-v1 REQUIRES INSTANCE TAG! ASSUMING SET TO 0!")
                 idx = 0
             factory.level = (idx % 5)
