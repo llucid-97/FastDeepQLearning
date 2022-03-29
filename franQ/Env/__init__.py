@@ -28,9 +28,9 @@ def make(conf: EnvConf):
         raise NotImplementedError(f"Suite {suite} not found!")
 
     env = EnvClass(conf)
-    if conf.monitor and conf.artefact_root:
+    if conf.monitor:
         from gym.wrappers import Monitor
         from pathlib import Path
         import uuid
-        env = Monitor(env, str(Path(conf.artefact_root) / f"monitor_{conf.instance_tag}_{uuid.uuid4()}"))
+        env = Monitor(env, str(Path(conf.log_dir) / "artefacts" / f"monitor_{conf.instance_tag}_{uuid.uuid4()}"))
     return env

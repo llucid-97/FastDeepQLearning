@@ -33,7 +33,7 @@ class Runner:
     def make_queues(self):
         conf = self.conf
         # Queues for communicating between all worker threads
-        self._queue_env_handler_to_agent_dataloader = Queue(maxsize=conf.num_instances)
+        self._queue_env_handler_to_agent_dataloader = Queue(maxsize=1)
         self._queue_agent_dataloader_to_agent_handler = Queue(maxsize=1)
         self._queue_agent_handler_to_env_dataloader = Queue(maxsize=1)
         self._queue_to_environment_handler = [Queue(maxsize=1) for _ in range(conf.num_instances)]
@@ -160,14 +160,15 @@ class Runner:
             leaderboard = []
             metadata = {}
             for _ in itertools.count():
-                score = self._queue_to_ranker.get()
+                data = self._queue_to_ranker.get()
+                score = data["score"]
                 if (score > np.asarray(leaderboard)).any() or len(leaderboard) == 0:
                     # Put agent into leaderboard
                     while score in metadata: score = score + ((random.random() - 0.5) * 1e-6)
                     leaderboard.append(score)
                     leaderboard = list(sorted(leaderboard, reverse=True))
                     metadata[score] = {
-                        "path": Path(self.conf.log_dir) / "models" / f"score={score}_step={self.conf.global_step.value}"
+                        "path": Path(self.conf.log_dir) / "models" / f"score={score}_step={data['step']}"
                     }
                     self.agent.save(metadata[score]["path"])
                     if len(leaderboard) > leaderboard_size:

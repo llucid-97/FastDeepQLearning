@@ -13,9 +13,8 @@ class EnvConf(AttrDict):
         self.resolution = (84, 84)
         self.render: T.Optional[int] = True
         self.monitor = False # If enabled, captures a video of the rollouts using the render and ffmpeg
-        self.artefact_root: T.Optional[str] = None
         self.env_specific_config = None
-
+        self.log_dir = 'logs'
         self.frame_stack_conf = FrameStackConf()
 
 @dataclass

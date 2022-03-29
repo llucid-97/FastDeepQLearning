@@ -10,13 +10,16 @@ from torch.utils.tensorboard import SummaryWriter
 def env_handler(conf: T.Union[Agent.AgentConf, Env.EnvConf], idx,
                 queue_put_experience: Queue, queue_get_action: Queue,
                 queue_put_score: Queue = None,
-                num_episodes=None, seed=None, wait_for_ranker=False):
+                num_episodes=None, seed=None, wait_for_ranker=False,env_generator=None):
     """Pipeline Stage: Asynchronously handles stepping through env to get a response"""
     conf = copy.copy(conf)
     conf.instance_tag = idx
     conf.monitor = conf.monitor if isinstance(conf.monitor, bool) else conf.monitor == idx
 
-    env = Env.make_mp(conf)
+    if env_generator is None:
+        env = Env.make_mp(conf)
+    else:
+        env = env_generator()
     if seed is not None:
         env.seed(seed)
 
@@ -63,8 +66,9 @@ def env_handler(conf: T.Union[Agent.AgentConf, Env.EnvConf], idx,
             logger.add_scalar("Env/EnvStep_Score", score, total_step)
             if queue_put_score is not None:
                 try:
-                    queue_put_score.put(score, wait_for_ranker)
+                    queue_put_score.put({"score":score,"step":xp["episode_step"]}, wait_for_ranker)
                 except Full:
                     pass
 
     env.close()
+    print(f"env_handler {idx} completed")

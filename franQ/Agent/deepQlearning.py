@@ -201,8 +201,9 @@ class DeepQLearning(nn.Module):
         if conf.encoder_conf.use_burn_in:
             xp["is_contiguous"][:int(seq_dim * conf.encoder_conf.burn_in_portion)] = 0
 
-        loss = ((q_loss + pi_loss + alpha_loss) * xp["is_contiguous"]) # Once its recurrent, they all use TD
-        loss = loss.sum(0) / (xp["is_contiguous"].float().sum(0) +1e-4) # for RNNs we need to normalize by sequence length else network is biased
+        loss = ((q_loss + pi_loss + alpha_loss) * xp["is_contiguous"])  # Once its recurrent, they all use TD
+        loss = loss.sum(0) / (xp["is_contiguous"].float().sum(
+            0) + 1e-4)  # for RNNs we need to normalize by sequence length else network is biased
         loss = loss.mean()
         if self.conf.use_bootstrap_minibatch_nstep:
             bootstrapped_lowerbound_loss = (bootstrapped_lowerbound_loss * xp["is_contiguous"].prod(0)).mean()
@@ -226,8 +227,6 @@ class DeepQLearning(nn.Module):
                  "max": xp["is_contiguous"].float().sum(axis=0).max(axis=0)[0] / self.conf.temporal_len,
                  "min": xp["is_contiguous"].float().sum(axis=0).min(axis=0)[0] / self.conf.temporal_len,
                  }, step)
-
-
 
         return loss / self.conf.temporal_len
 
@@ -257,6 +256,7 @@ class DeepQLearning(nn.Module):
 
         conf.global_step = mp.Value("i", conf.global_step)
         state_dict = torch.load(logdir / "state_dict.tch")
-        agent = DeepQLearning(conf)
+        from franQ import Agent
+        agent: DeepQLearning = Agent.make(conf)
         agent.load_state_dict(state_dict)
         return agent

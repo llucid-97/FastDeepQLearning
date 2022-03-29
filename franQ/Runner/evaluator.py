@@ -1,23 +1,79 @@
 import typing as T
 from threading import Thread
 
-from franQ import Env, Agent
 from franQ.common_utils import TimerTB
 from .env_handler import env_handler
 from .runner import Runner
+from pathlib import Path
 
 
 class Evaluator(Runner):
-    def __init__(self, conf: T.Union[Agent.AgentConf, Env.EnvConf], **kwargs):
-        self.conf = conf
-        TimerTB.CLASS_ENABLE_SWITCH = conf.enable_timers
-        self.make_queues()
-        self._queue_to_replay_handler = None
-        # make agent: It is responsible for its own training asynchronously, and provides an API for inference
+    def __init__(self):
+        pass
+
+    def __call__(self,
+                 agent_path: T.Union[str, Path],
+                 num_episodes,
+                 parallel_instance_seeds: T.Union[int, T.List[int]] = None,
+                 env_generator: T.Callable = None, log_dir_override=None,
+                 deterministic=True,
+                 render=True,
+                 device='cpu'):
+        print(f"evaluationg agent {agent_path}")
+        agent_path = Path(agent_path)
+        assert agent_path.exists()
         from franQ.Agent.deepQlearning import DeepQLearning
-        self.agent: DeepQLearning = Agent.make(conf)
-        self.agent.to(conf.inference_device)
+
+        self.agent = DeepQLearning.load_from_file(agent_path)
+        self.agent.to(device)
+
+        self.conf = conf = self.agent.conf
+        conf.render = render
+        if log_dir_override is not None:
+            self.conf.log_dir = log_dir_override
+        else:
+            import tempfile
+            from franQ import common_utils
+            self.conf.log_dir = Path(tempfile.gettempdir()) / common_utils.time_stamp_str()
+
+        TimerTB.CLASS_ENABLE_SWITCH = conf.enable_timers
+        try:
+            parallel_instance_seeds = list(parallel_instance_seeds)
+        except TypeError:
+            parallel_instance_seeds = [parallel_instance_seeds]
+        self.conf.num_instances = len(parallel_instance_seeds)
+
+        if deterministic:
+            self.conf.eval_envs = list(range(len(parallel_instance_seeds)))
+        else:
+            self.conf.eval_envs = []
+
+        self.make_queues()
         self._setup_pipeline_threads()
+
+        self._queue_to_replay_handler = None
+
+        threads = [Thread(
+            target=env_handler,
+            args=(self.conf, i, self._queue_env_handler_to_agent_dataloader, self._queue_to_environment_handler[i],
+                  self._queue_to_ranker,),
+            kwargs={'num_episodes': num_episodes, "seed": parallel_instance_seeds[i], "wait_for_ranker": True,
+                    "env_generator": env_generator}
+        ) for i in range(len(parallel_instance_seeds))]
+
+        scores = []
+
+        def accumulate_scores():
+            while (data:= self._queue_to_ranker.get()) is not None:
+                scores.append(data)
+
+        accumulator_thread = Thread(target=accumulate_scores)
+        accumulator_thread.start()
+        [t.start() for t in threads]
+        [t.join() for idx,t in enumerate(threads)]
+        self._queue_to_ranker.put(None)
+        accumulator_thread.join()
+        return scores
 
     def _setup_pipeline_threads(self):
         """launch thread workers for each stage of the pipeline"""
@@ -27,36 +83,3 @@ class Evaluator(Runner):
                     Thread(target=self._agent_handler)]
         self.pipeline_threads = threads
         [t.start() for t in threads]
-
-    def eval_agent(self, agent_path, num_episodes, seeds):
-        print(f"evaluationg agent {agent_path}")
-        assert len(seeds) == self.conf.num_instances
-        self.agent = self.agent.load_from_file(agent_path)
-        self.agent.to(self.conf.inference_device)
-
-        self.conf.eval_envs = list(range(len(seeds)))
-        threads = [Thread(
-            target=env_handler,
-            args=(self.conf, i, self._queue_env_handler_to_agent_dataloader, self._queue_to_environment_handler[i],
-                  self._queue_to_ranker,),
-            kwargs={'num_episodes': num_episodes, "seed": seeds[i], "wait_for_ranker": True}
-        ) for i in range(len(seeds))]
-
-        scores = []
-        kill_switch = False
-
-        def accumulate_scores():
-            while not kill_switch:
-                s = self._queue_to_ranker.get()
-                if s is not None:
-                    scores.append(s)
-
-        accumulator_thread = Thread(target=accumulate_scores)
-        accumulator_thread.start()
-        [t.start() for t in threads]
-        [t.join() for t in threads]
-        self._queue_to_ranker.put(None)
-        kill_switch = True
-        accumulator_thread.join()
-
-        return scores
