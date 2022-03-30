@@ -168,7 +168,8 @@ class Runner:
                     leaderboard.append(score)
                     leaderboard = list(sorted(leaderboard, reverse=True))
                     metadata[score] = {
-                        "path": Path(self.conf.log_dir) / "models" / f"score={score}_step={data['step']}"
+                        "path": Path(self.conf.log_dir) / "models" / f"score={score}_step={data['step']}",
+                        "name": f"score={score:.2f} train_step={self.conf.global_step.value} env_step={data['step']}",
                     }
                     self.agent.save(metadata[score]["path"])
                     if len(leaderboard) > leaderboard_size:
@@ -181,6 +182,5 @@ class Runner:
                                 shutil.rmtree(metadata[c]["path"], ignore_errors=True)
                             del metadata[c]
 
-                    lstring = '\n'.join(
-                        [f'{i} : {l:.2f} @ step ({self.conf.global_step.value})' for i, l in enumerate(leaderboard)])
+                    lstring = '\n'.join([f'{i} : {metadata[l]["name"]})' for i, l in enumerate(leaderboard)])
                     print(f"Top {leaderboard_size} scores: [\n{lstring}\n]")

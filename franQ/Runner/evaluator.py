@@ -18,7 +18,8 @@ class Evaluator(Runner):
                  env_generator: T.Callable = None, log_dir_override=None,
                  deterministic=True,
                  render=True,
-                 device='cpu'):
+                 device='cpu',
+                 preproc=False):
         print(f"evaluationg agent {agent_path}")
         agent_path = Path(agent_path)
         assert agent_path.exists()
@@ -58,7 +59,7 @@ class Evaluator(Runner):
             args=(self.conf, i, self._queue_env_handler_to_agent_dataloader, self._queue_to_environment_handler[i],
                   self._queue_to_ranker,),
             kwargs={'num_episodes': num_episodes, "seed": parallel_instance_seeds[i], "wait_for_ranker": True,
-                    "env_generator": env_generator}
+                    "env_generator": env_generator,"preproc":preproc,}
         ) for i in range(len(parallel_instance_seeds))]
 
         scores = []

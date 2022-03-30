@@ -3,7 +3,6 @@ from franQ import Env, Agent
 import multiprocessing as mp
 import typing as T
 from experiments.utils.launch_experiment import launch_experiment
-
 import py_ics
 
 
@@ -42,10 +41,20 @@ def main():
     factory.use_product_reward_components = True
     factory.use_cae_reward = False
     factory.residual = False
-    factory.level = 0
+    factory.level = 1
     factory.time_limit = int(1.2e5)
     factory.frame_skip = 50
     factory.use_angle_limit = False
+    factory.use_random_starts = True
+
+
+    from pathlib import Path
+    import os
+    SOURCE_ROOT = Path(r"D:\projects\ics\python_ai4ics\py_ics")
+    factory.fmu_base_dir = SOURCE_ROOT / 'FMU_Exports/DSME' / ('win_fmu' if os.name == 'nt' else 'linux_fmu')
+    factory.fmu_infinity_path = factory.fmu_base_dir / 'Env_TrajControl_DSME_infty.fmu'
+    factory.fmu_param_map_path = factory.fmu_base_dir / 'Env_TrajControl_DSME_paramMap.fmu'
+    factory.map_dir_path = SOURCE_ROOT / "Maps/"
     global_conf.env_specific_config = factory
 
     launch_experiment(global_conf)

@@ -43,10 +43,14 @@ class FrameStack(Wrapper):
         return self._get_ob(), reward, done, info
 
     def _get_ob(self):
-        assert len(self.frames) == self.k
-        if self.exponential:
-            return np.concatenate(np.asarray(self.frames)[self.exponential_idxes], axis=-1)
-        return np.concatenate(list(self.frames), axis=-1)
+        try:
+            assert len(self.frames) == self.k
+            if self.exponential:
+                return np.concatenate(np.asarray(self.frames)[self.exponential_idxes], axis=-1)
+            return np.concatenate(list(self.frames), axis=-1)
+        except Exception as e:
+            print(e)
+            print(e)
 
 
 class ScaledFloatFrame(ObservationWrapper):

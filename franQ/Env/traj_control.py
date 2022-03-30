@@ -5,7 +5,7 @@ import gym
 
 spaces = gym.spaces
 from franQ.Env.wrappers import wrapper_base, common
-from franQ.Env.conf import EnvConf
+from franQ.Env.conf import EnvConf, AttrDict
 from py_ics.gym_env.envs import JPTrajConFactory
 
 
@@ -13,7 +13,6 @@ class TrajControlWrapper(wrapper_base.Wrapper):
 
     def __init__(self, conf: EnvConf):
         self.version = version = int(conf.name.split('-v')[-1])
-
 
         if conf.env_specific_config is None:
             factory = JPTrajConFactory()
@@ -29,29 +28,38 @@ class TrajControlWrapper(wrapper_base.Wrapper):
                 logging.warning(__file__)
                 logging.warning("TrajControl-v1 REQUIRES INSTANCE TAG! ASSUMING SET TO 0!")
                 idx = 0
-            factory.level = (idx % 5)
+            factory.level = (idx % factory.num_levels)
 
         assert conf.log_dir is not None
         factory.log_dir = conf.log_dir
         self.factory = factory
-        self._init_actual(conf)
+        self._init_actual_kwargs = { # need to extract this here so we aren't keeping copies of unserializable state
+            "frame_stack_conf":conf.frame_stack_conf,
+        }
+        self._init_actual(self._init_actual_kwargs)
 
-    def _init_actual(self,conf:EnvConf):
+    def _init_actual(self, conf:dict):
+        conf:EnvConf = AttrDict(conf)
         env = self.factory.make_env()
+        env = self.get_preprocessing_stack(conf, env)
+        super().__init__(env)
+
+
+    @staticmethod
+    def get_preprocessing_stack(conf, env):
         env = common.NormalizeActions(env)
         if conf.frame_stack_conf.enable:
-            env = common.FrameStack(env,k=conf.frame_stack_conf.num_frames)
+            env = common.FrameStack(env, k=conf.frame_stack_conf.num_frames)
         env = common.ObsDict(env, default_key="obs_1d")
-        super().__init__(env)
+        return env
 
     def reset(self, **kwargs):
         if self.version > 1:
             # Cycle environments on reset
-            super().reset() # to allow episodic logging
+            super().reset()  # to allow episodic logging
             self.factory.level = (self.factory.level + self.num_instances) % self.factory.num_levels
-            self._init_actual()
+            self._init_actual(self._init_actual_kwargs)
         return super().reset()
-
 
     def get_reward_functor(self) -> T.Callable:
         return self.env.compute_reward

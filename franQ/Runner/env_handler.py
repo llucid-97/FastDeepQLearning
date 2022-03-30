@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 def env_handler(conf: T.Union[Agent.AgentConf, Env.EnvConf], idx,
                 queue_put_experience: Queue, queue_get_action: Queue,
                 queue_put_score: Queue = None,
-                num_episodes=None, seed=None, wait_for_ranker=False,env_generator=None):
+                num_episodes=None, seed=None, wait_for_ranker=False,env_generator=None,preproc=False):
     """Pipeline Stage: Asynchronously handles stepping through env to get a response"""
     conf = copy.copy(conf)
     conf.instance_tag = idx
@@ -20,6 +20,8 @@ def env_handler(conf: T.Union[Agent.AgentConf, Env.EnvConf], idx,
         env = Env.make_mp(conf)
     else:
         env = env_generator()
+        if preproc:
+            env = Env.make(conf).get_preprocessing_stack(conf,env)
     if seed is not None:
         env.seed(seed)
 
