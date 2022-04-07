@@ -25,7 +25,8 @@ def main():
     agent_conf.num_critics = 5
 
     # NOTE: Fewer layers ===> Faster training.
-    agent_conf.enc1d_hidden_dims = []
+    agent_conf.encoder_conf.obs_1d_hidden_dims = []
+    agent_conf.encoder_conf.joint_hidden_dims = []
     agent_conf.pi_hidden_dims = [256]
     agent_conf.critic_hidden_dims = [256, 256]
     agent_conf.init_log_alpha = 0
