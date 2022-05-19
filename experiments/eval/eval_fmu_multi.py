@@ -51,7 +51,7 @@ def main(eval_dir):
         global_conf,
         eval_dir,
         episodes=2,
-        seeds=[0, ] * global_conf.num_instances
+        worker_seeds=[0, ] * global_conf.num_instances
     )
 
 

@@ -120,7 +120,7 @@ class DeepQLearning(nn.Module):
                             {str(i): p.grad.norm() for i, p in enumerate(self.param_dict[k][k2])},
                             self.conf.global_step.value
                         )
-            nn.utils.clip_grad_norm_(self.parameters(), self.conf.clip_grad_norm)
+            # nn.utils.clip_grad_norm_(self.parameters(), self.conf.clip_grad_norm)
             [o.step() for o in self.optimizers]
             self.update_targets()
             self.reset()

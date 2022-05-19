@@ -19,7 +19,7 @@ def env_handler(conf: T.Union[Agent.AgentConf, Env.EnvConf], idx,
     if env_generator is None:
         env = Env.make_mp(conf)
     else:
-        env = env_generator()
+        env = env_generator(idx)
         if preproc:
             env = Env.make(conf).get_preprocessing_stack(conf,env)
     if seed is not None:

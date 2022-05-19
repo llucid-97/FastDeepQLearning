@@ -38,7 +38,7 @@ def main(eval_dir):
         global_conf,
         eval_dir,
         episodes=2,
-        seeds=[0, 2, 4]
+        worker_seeds=[0, 2, 4]
     )
 
 

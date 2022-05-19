@@ -24,6 +24,8 @@ def make(conf: EnvConf):
         from franQ.Env.classic_control_goal import ClassicGoalEnv as EnvClass
     elif suite in ("traj_control",):
         from franQ.Env.traj_control import TrajControlWrapper as EnvClass
+    elif suite in ("traj_control-v2",):
+        from franQ.Env.traj_control_v2 import TrajControlV2Wrapper as EnvClass
     else:
         raise NotImplementedError(f"Suite {suite} not found!")
 

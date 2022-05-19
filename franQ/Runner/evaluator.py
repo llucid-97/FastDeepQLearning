@@ -5,6 +5,7 @@ from franQ.common_utils import TimerTB
 from .env_handler import env_handler
 from .runner import Runner
 from pathlib import Path
+import math
 
 
 class Evaluator(Runner):
@@ -15,7 +16,8 @@ class Evaluator(Runner):
                  agent_path: T.Union[str, Path],
                  num_episodes,
                  parallel_instance_seeds: T.Union[int, T.List[int]] = None,
-                 env_generator: T.Callable = None, log_dir_override=None,
+                 env_generator: T.Callable = None,
+                 log_dir_override=None,
                  deterministic=True,
                  render=True,
                  device='cpu',
@@ -58,8 +60,11 @@ class Evaluator(Runner):
             target=env_handler,
             args=(self.conf, i, self._queue_env_handler_to_agent_dataloader, self._queue_to_environment_handler[i],
                   self._queue_to_ranker,),
-            kwargs={'num_episodes': num_episodes, "seed": parallel_instance_seeds[i], "wait_for_ranker": True,
-                    "env_generator": env_generator,"preproc":preproc,}
+            kwargs={'num_episodes': int(math.ceil(num_episodes / len(parallel_instance_seeds))),
+                    "seed": parallel_instance_seeds[i],
+                    "wait_for_ranker": True,
+                    "env_generator": env_generator,
+                    "preproc":preproc,}
         ) for i in range(len(parallel_instance_seeds))]
 
         scores = []

@@ -38,6 +38,7 @@ def evaluate_policy(
         callback: T.Optional[T.Callable[[T.Dict[str, T.Any], T.Dict[str, T.Any]], None]] = None,
         reward_threshold: T.Optional[float] = None,
         return_episode_rewards: bool = False,
+        parallel_instance_seeds=(0,)
 ):
     """
     Runs policy for ``n_eval_episodes`` episodes and returns average reward.
@@ -78,7 +79,7 @@ def evaluate_policy(
 
     rollout_data = Runner.Evaluator()(model_path,
                                       num_episodes=n_eval_episodes,
-                                      parallel_instance_seeds=[0],
+                                      parallel_instance_seeds=parallel_instance_seeds,
                                       env_generator=env_generator,
                                       deterministic=deterministic,
                                       log_dir_override=log_dir,
@@ -94,8 +95,23 @@ def evaluate_policy(
     return np.mean(scores), np.std(scores)
 
 
-def evaluate_experiment(config: T.Union[Env.EnvConf, Agent.AgentConf], experiment_log_dir, episodes, seeds,
-                        score_reduction_fn=np.min):
+def evaluate_experiment(config: T.Union[Env.EnvConf, Agent.AgentConf], experiment_log_dir, episodes, worker_seeds,
+                        score_reduction_fn=np.mean):
+    """
+    Evaluates all policies in an experiment directory
+    :param config:
+    :param experiment_log_dir:
+    :param episodes:
+    :param worker_seeds:
+    :param score_reduction_fn:
+    :return:
+    """
+    if config.num_instances != len(worker_seeds):
+        import warnings
+        warnings.warn(
+            f"num_instances doesn't match the number of seeds provided! Forcing num_instances to {len(worker_seeds)}")
+        config.num_instances = len(worker_seeds)
+
     # Make a dummy environment so we can get observation and action space data
     experiment_log_dir = Path(experiment_log_dir)
     assert experiment_log_dir.exists()
@@ -103,30 +119,33 @@ def evaluate_experiment(config: T.Union[Env.EnvConf, Agent.AgentConf], experimen
     # Create dummy env to get spaces
     kwargs = {}
     config.log_dir = str(Path(config.log_dir) / (common_utils.time_stamp_str() + f"{config.suite}_{config.name}"))
-    config.artefact_root = str(Path(config.log_dir) / "artefacts")
-    c = copy.copy(config)
-    c.monitor = False
-    eg_env = Env.make(config)
-    config.obs_space, config.action_space = eg_env.observation_space, eg_env.action_space
-    if config.use_HER:
-        kwargs["compute_reward"] = eg_env.get_reward_functor()
-    config.discrete = isinstance(config.action_space, gym.spaces.Discrete)
-    del (eg_env)
+
+    def env_generator(idx):
+        conf = copy.copy(config)
+
+        conf.instance_tag = idx
+        return Env.make(conf)
 
     # Launch the experiment
-    evaluator = Runner.Evaluator(config, **kwargs)
-
-    scores = {}
+    board = {}
     for dir in os.listdir(experiment_log_dir / "models"):
-        scores[dir] = score_reduction_fn(
-            evaluator.eval_agent(
-                experiment_log_dir / "models" / dir,
-                episodes,
-                seeds,
-            )
-        )
+        scores, steps = evaluate_policy(model_path=experiment_log_dir / "models" / dir,
+                                        env_generator=env_generator,
+                                        n_eval_episodes=episodes,
+                                        deterministic=True,
+                                        log_dir=config.log_dir,
+                                        return_episode_rewards=True,
+                                        parallel_instance_seeds=worker_seeds)
+
+        # scores[dir] = score_reduction_fn(
+        #     evaluator.eval_agent(
+        #         episodes,
+        #         worker_seeds,
+        #     )
+        # )
+        board[dir] = score_reduction_fn(scores)
         print("Leaderboard: [")
-        for i, (key, value) in enumerate(sorted(scores.items(), key=lambda item: item[1], reverse=True)):
+        for i, (key, value) in enumerate(sorted(board.items(), key=lambda item: item[1], reverse=True)):
             print(f"{i}) {value:.2f} {key}")
         print("]")
 
@@ -143,7 +162,7 @@ if __name__ == '__main__':
 
         evaluate_policy(
             r"D:\projects\ics\python_ai4ics_v2\py_ics\submodules\ICS_FastDeepQLearning\experiments\logs\2022-03-25___11-23-56classic_CartPole-v1\models\score=500.0_step=854",
-            lambda : env_generator(),
+            lambda: env_generator(),
             render=True,
             n_eval_episodes=2,
         )
