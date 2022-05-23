@@ -10,7 +10,6 @@ from py_ics.gym_env.envs import JPTrajConFactory
 
 
 class TrajControlWrapper(wrapper_base.Wrapper):
-
     def __init__(self, conf: EnvConf):
         self.version = version = int(conf.name.split('-v')[-1])
 

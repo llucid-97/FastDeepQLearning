@@ -64,7 +64,7 @@ def env_handler(conf: T.Union[Agent.AgentConf, Env.EnvConf], idx,
 
             # After Episode:
             logger.add_scalar("Env/Episode_Score", score, episode)
-            logger.add_scalar("Env/TrainStep_Score", score, conf.global_step.value)
+            logger.add_scalar("Env/TrainStep_Score", score, conf.train_step.value)
             logger.add_scalar("Env/EnvStep_Score", score, total_step)
             if queue_put_score is not None:
                 try:

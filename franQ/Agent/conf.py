@@ -14,7 +14,7 @@ class AgentConf(AttrDict):
         self.obs_space = None
         self.action_space = None
         self.discrete = None
-        self.global_step = mp.Value("i", 0)
+        self.train_step = mp.Value("i", 0)
         # environment keys required to run inference
         self.inference_input_keys = "obs_1d", "obs_2d", "idx", "achieved_goal", "desired_goal", "agent_state"
 
@@ -26,6 +26,8 @@ class AgentConf(AttrDict):
         # Logging
         self.eval_envs = [0]
         self.log_dir = Path("logs")
+        self.log_extra_debug_info = False
+
         self.enable_timers = False
         self.log_interval = 50
         self.param_update_interval = 50

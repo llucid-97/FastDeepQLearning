@@ -59,13 +59,6 @@ class SoftActorCritic(nn.Module):
             hard_update(self.actor_target, self.actor)
             hard_update(self.critic_target, self.critic)
 
-    def act(self, state):
-        explore_action, log_prob, greedy_action = self.actor(state)
-        if self.conf.discrete:
-            # Outputs are distribution (or logits) over actions. Must sample
-            explore_action: Tensor = explore_action.argmax(-1, True)  # argmax is fine: already sampled gumbel softmax
-            greedy_action: Tensor = greedy_action.argmax(-1, True)
-        return explore_action, log_prob, greedy_action
 
     def q_loss(self, curr_xp: T.Dict[str, Tensor], next_xp: T.Dict[str, Tensor]):
         conf = self.conf

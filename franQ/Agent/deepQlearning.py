@@ -111,24 +111,24 @@ class DeepQLearning(nn.Module):
             task_loss.backward()
 
             # More expensive logging should happen less frequently
-            if (self.conf.global_step.value % (self.conf.log_interval * 4)) == 0:
+            if (self.conf.train_step.value % (self.conf.log_interval * 4)) == 0:
                 # Gradient norms
                 for k in self.param_dict:
                     for k2 in self.param_dict[k]:
                         self.summary_writer.add_scalars(
                             f"GradNorms/{k}_{k2}",
                             {str(i): p.grad.norm() for i, p in enumerate(self.param_dict[k][k2])},
-                            self.conf.global_step.value
+                            self.conf.train_step.value
                         )
             # nn.utils.clip_grad_norm_(self.parameters(), self.conf.clip_grad_norm)
             [o.step() for o in self.optimizers]
             self.update_targets()
             self.reset()
-            self.conf.global_step.value += 1
+            self.conf.train_step.value += 1
 
     @property
     def iteration(self):
-        return int(self.conf.global_step.value)
+        return int(self.conf.train_step.value)
 
     def parameters(self, *args, **kwargs):
         return self.fast_params
@@ -160,13 +160,31 @@ class DeepQLearning(nn.Module):
                 self.train_step()
 
         with torch.no_grad():
-            encodings, hidden_state = self.encoder.forward_eval(experiences)
-            explore_action, log_prob, exploit_action = self.actor_critic.act(encodings)
-            exploit_mask = experiences["exploit_mask"]
-            action = (exploit_action * exploit_mask) + (explore_action * torch.logical_not(exploit_mask))
+            info = {}
+            curr_step = self.conf.train_step.value
 
-            # if self.conf.discrete: action = action.argmax(-1, True)  # go from one-hot encoding to sparse
-            return action, hidden_state
+            encodings, hidden_state = self.encoder.forward_eval(experiences)
+
+            explore_action, log_prob, exploit_action = self.actor_critic.actor(encodings)
+
+            if self.conf.log_extra_debug_info and (curr_step % self.conf.log_interval) == 0:
+                state_action = torch.cat([encodings, exploit_action], dim=-1)
+                q = self.actor_critic.critic(state_action)
+                info['q_mu'] = torch.mean(q, dim=-1)
+                info['q_var'] = torch.var(q, dim=-1)
+
+            if self.conf.discrete:
+                # Outputs are distribution (or logits) over actions. Must squash to sparse encoding
+                explore_action: Tensor = explore_action.argmax(-1, True)  # already sampled softmax
+                exploit_action: Tensor = exploit_action.argmax(-1, True)
+            mask = experiences["exploit_mask"]
+            action = (exploit_action * mask) + (explore_action * torch.logical_not(mask))
+            if (curr_step % self.conf.log_interval) == 0:
+                info['log_prob'] = log_prob
+                info['explore_action'] = explore_action
+                info['exploit_action'] = exploit_action
+
+            return action, hidden_state, info
 
     def get_random_hidden(self):
         return self.encoder.get_random_hidden()
@@ -210,7 +228,7 @@ class DeepQLearning(nn.Module):
             loss = loss + bootstrapped_lowerbound_loss
 
         # Logging metrics && debug info to tensorboard
-        step = self.conf.global_step.value
+        step = self.conf.train_step.value
         if (step % self.conf.log_interval) == 0:
             assert q_loss.shape == pi_loss.shape == xp["is_contiguous"].shape == alpha_loss.shape, \
                 f"loss shape mismatch: q={q_loss.shape} pi={pi_loss.shape} c={xp['is_contiguous'].shape} a={alpha_loss.shape}"
@@ -244,7 +262,7 @@ class DeepQLearning(nn.Module):
         logdir.mkdir(parents=True, exist_ok=True)
 
         conf = copy.copy(self.conf)
-        conf.global_step = conf.global_step.value
+        conf.train_step = conf.train_step.value
         torch.save(conf, logdir / "conf.tch")
         torch.save(self.state_dict(), logdir / "state_dict.tch")
 
@@ -254,7 +272,7 @@ class DeepQLearning(nn.Module):
 
         conf = torch.load(logdir / "conf.tch")
 
-        conf.global_step = mp.Value("i", conf.global_step)
+        conf.train_step = mp.Value("i", conf.train_step)
         state_dict = torch.load(logdir / "state_dict.tch")
         from franQ import Agent
         agent: DeepQLearning = Agent.make(conf)
